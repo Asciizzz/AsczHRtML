@@ -1,0 +1,1649 @@
+<!-- Build_v0.3
+
+All credits to Asciiz on discord
+Add me on Steam: 1263698907
+I am 12k elo in CS2, lvl 8 faceit
+
+Contributions are welcome, peace!
+
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+<style>
+    * {
+        margin: 0; padding: 0;
+        box-sizing: border-box;
+        font-family: monospace; user-select: none;
+        transition: .3s ease color, .3s ease background, .3s ease opacity;
+    }
+    body {
+        position: relative; background: #222;
+        width: 100vw; height: 100vh;
+        display: flex; overflow: hidden;
+        align-items: center; justify-content: center;
+    }
+    #canvas { position: relative; }
+    input[type="file"] { display: none; }
+
+    .hud-cool-button {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        width: 100%; height: 2rem;
+        font-size: 1.5rem;
+        overflow: hidden;
+        border: 1px solid #fff;
+        transition: .3s ease;
+        background: none;
+
+        padding: 0 1rem;
+    }
+    .hud-cool-button h1,
+    .hud-cool-button h2 {
+        position: relative; font-size: 1.5rem;
+        transform: translateY(0.9rem);
+        color: white; transition: .3s ease;
+    }
+    .hud-cool-button:hover { background: #fff; }
+    .hud-cool-button:hover h1,
+    .hud-cool-button:hover h2 {
+        color: #222; transform: translateY(-0.92rem);
+    }
+
+    .hud-info > h1 {
+        font-size: 2.7rem; color: #cfc;
+        margin-bottom: 1rem;
+    }
+    .hud-info > div { margin-bottom: 1rem; }
+    .hud-info > div > h2 { font-size: 2rem; }
+    .hud-info > div > h3 { font-size: 1.7rem; }
+
+    .hud-title {
+        font-size: 2.5rem;
+        color: #fff;
+        margin-bottom: 1rem;
+    }
+
+    #hud-camera-container > h3 { color: #c33; font-size: 1.7rem; }
+
+    .hud-light > h2 { color: #ff9; width: 100%; }
+    .hud-light > h3 { color: #cc3; width: 100%; }
+    .hud-light { 
+        position: relative;
+        padding: 2rem 1rem;
+        margin: 1rem 0;
+    }
+    .hud-light button {
+        position: absolute;
+        width: 33.3%; height: 0; bottom: 0;
+        transition: .3s ease;
+        pointer-events: none;
+        cursor: pointer; overflow: hidden;
+        border: none; outline: none;
+    }
+    .hud-light button:nth-child(1) { left: 0; background: #9f9; }
+    .hud-light button:nth-child(2) { left: 33.3%; background: #99f; }
+    .hud-light button:nth-child(3) { right: 0; background: #f99; }
+
+    .hud-light:hover button { height: 20%; pointer-events: all; }
+    .hud-light:hover button:hover { height: 24%; }
+    .hud-light:hover button:nth-child(1):hover { background: #5f5; }
+    .hud-light:hover button:nth-child(2):hover { background: #55f; }
+    .hud-light:hover button:nth-child(3):hover { background: #f55; }
+
+    .hud-light-add {
+        width: 100%;
+    }
+
+    [class^="bvh-"], [class^="bvh-"] * {
+        transition: .3s ease;
+    }
+
+    .bvh-leaf, .bvh-node-title {
+        display: block;
+        position: relative;
+        width: 100%; color: white;
+        background: none; border: none;
+        cursor: pointer; text-align: left;
+    }
+    .bvh-node-title {
+        font-size: 1.5rem;
+        background: rgba(85, 85, 221, 0.5);
+        outline: 2px solid #55d;
+    }
+    .bvh-leaf {
+        border-left: 8px solid #9d9;
+        padding: 0.4rem 1rem;
+        margin: 0.1rem 0; font-size: 1.3rem;
+    }
+    .bvh-node-title ~ .bvh-node {
+        padding-left: 4rem;
+        outline: 2px solid #55d;
+    }
+    .bvh-leaf:focus { outline: inherit; }
+    .bvh-node-title:focus { outline: inherit; }
+
+    .bvh-leaf:hover {  background: #7e7; color: #000; }
+    .bvh-node-title:hover + .bvh-node { background: #55d; }
+
+    #sub-hud-4 > * {
+        margin-bottom: 1rem;
+    }
+
+    #hud-menu {
+        position: fixed;
+        left: 0; top: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex; align-items: center;
+        justify-content: center; z-index: 2;
+        width: 100vw; padding: 1vh 0;
+
+        transform: translateY(-100%);
+        transition: .3s ease;
+    }
+    #hud-empty {
+        position: fixed;
+        top: 0; left: 0; z-index: 1;
+        width: 100vw; height: 5vh;
+    }
+    #hud-empty:hover + #hud-menu,
+    #hud-menu:hover {
+        transform: translateY(0);
+    }
+
+    #hud-menu > label {
+        cursor: pointer;
+        font-size: 1.5rem;
+        border: 1px solid #fff;
+        color: #fff;
+        
+        margin: 0 2rem;
+        padding: 0.2rem 1.5rem;
+    }
+    #hud-menu > label:hover {
+        background: #fff;
+        color: #000;
+    }
+
+    #hud-container {
+        position: absolute;
+        top: 0; left: 0; z-index: 1;
+        overflow: hidden;
+        pointer-events: none;
+
+        width: 100vw; height: 100vh;
+    }
+
+    #hud-container > .sub-hud,
+    #hud-container > input { display: none; }
+    #hud-container > input:checked + .sub-hud {
+        display: block;
+    }
+
+    .sub-hud {
+        position: absolute;
+        top: 0; left: 0;
+        background: rgba(0, 0, 0, 0.8);
+        padding: 2rem;
+        pointer-events: all;
+
+        max-width: 60vw;
+        max-height: 90vh;
+        overflow: auto;
+    }
+
+</style>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AsczEngineHRtML_v0.3</title>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+
+    <div id="hud-container">
+        <!-- Camera Data -->
+        <input type="checkbox" id="hud-checkbox-0">
+        <div class="sub-hud" id="sub-hud-0">
+            <h1 class="hud-title" style="color: #f99;">Camera</h1>
+            <div id="hud-camera-container">
+                <h3>| Pos: (<span id="hud-camera-pos"></span>)</h3>
+                <h3>| Yaw: <span id="hud-camera-yaw"></span></h3>
+                <h3>| Pit: <span id="hud-camera-pit"></span></h3>
+                <h3>| Fov: <span id="hud-camera-fov"></span></h3>
+                <h3>| Fw: (<span id="hud-camera-fw"></span>)</h3>
+                <h3>| Rt: (<span id="hud-camera-rt"></span>)</h3>
+                <h3>| Up: (<span id="hud-camera-up"></span>)</h3>
+            </div>
+        </div>
+
+        <!-- Light Data -->
+        <input type="checkbox" id="hud-checkbox-1">
+        <div class="sub-hud" id="sub-hud-1">
+            <h1 class="hud-title" style="color: #ff9;">Light Sources</h1>
+            <div id="hud-light-container"></div>
+        </div>
+
+        <!-- BVH tree -->
+        <input type="checkbox" id="hud-checkbox-2">
+        <div class="sub-hud" id="sub-hud-2">
+            <h1 class="hud-title" style="color: #55d;">BVH Tree</h1>
+            <div id="hud-bvh-container"></div>
+        </div>
+
+        <!-- Settings -->
+        <input type="checkbox" id="hud-checkbox-3">
+        <div class="sub-hud" id="sub-hud-3">
+            <input type="file" id="hud-image-loader" accept="image/*">
+            <label class="hud-cool-button" id="hud-image-label" for="hud-image-loader">
+                <h1>Load Texture</h1>
+                <h2>Load img into Textures array</h2>
+            </label>
+
+            <button class="hud-cool-button" onclick="saveCanvasAsImage()">
+                <h1>Save Image</h1>
+                <h2>Download as .png</h2>
+            </button>
+        </div>
+        
+        <!-- Welcome to my world -->
+        <input type="checkbox" id="hud-checkbox-4">
+        <div class="sub-hud" id="sub-hud-4" style="color: #fff; max-width: 50vw;">
+            <div class="hud-info" id="hud-info-2">
+                <h1 style="color:#99f">AsczEngineHRtML</h1>
+                <hr style="margin: 1rem 0;">
+                <h2>What does it do?</h2><br>
+                <h3>Due to the nature of javascript and html being a single thread language, the engine is not suitable for real-time rendering. The engine is designed for educational purposes and to demonstrate the "basic" concept of ray tracing.</h3>
+                <hr style="margin: 1rem 0;">
+                <h2>How does it work?</h2><br>
+                <h3><span style="color:#9f9">Fast Mode</span> for <span style="color:#9f9">Real-time Rendering</span> and <span style="color:#f99">Quality Mode</span> for <span style="color:#f99">High-Quality Rendering</span>.</h3><br>
+                <h3><span style="color:#9f9">Fast Mode</span>: ridiculously low resolution, this helps the user navigate the scene and adjust the camera and light sources smoother since less pixels means higher frames. 
+                </h3><br>
+                <h3><span style="color:#f99">Quality Mode</span>: highest resolution possible (that the browser allows), and make full use of all ray tracing features. While activated, all real-time activities are halted to avoid, well, burning a hole in your house I guess.</h3>
+                <hr style="margin: 1rem 0;">
+                <h2>Why HTML?</h2><br>
+                <h3>Cuz it's fun! And very easy to share with others. Just need to send a ~50kb file to your friends and they can run it on their browser. No need to install anything, no need to worry about compatibility, just open and run. Even your grandma PC can run this engine.</h3><br>
+                <h3>Also so I can learn all ray tracing concepts before implementing them in <span style="color:#ff9">AsczEngineRT. </span>
+                <hr style="margin: 1rem 0;">
+                <h2>Who am I?</h2><br>
+                <h3>Just someone that is really obsessed with the lowest level of programming. This ain't low level programming anymore, it's rock bottom level programming.</h3>
+            </div>
+        </div>
+    </div>
+
+    <div id="hud-empty"></div> <!-- To trigger hover event -->
+    <div id="hud-menu">
+        <label for="hud-checkbox-0">Camera</label>
+        <label for="hud-checkbox-1">Light</label>
+        <label for="hud-checkbox-2">BVH</label>
+        <label for="hud-checkbox-3">Setting</label>
+        <label for="hud-checkbox-4">Welcome</label>
+    </div>
+</body>
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+function resizeCanvas(width, height) {
+    canvas.width = width;
+    canvas.height = height;
+}
+resizeCanvas(window.innerWidth, window.innerHeight);
+
+function saveCanvasAsImage() {
+    const canvas = document.getElementById('canvas');
+    const image = canvas.toDataURL("image/png");
+
+    const link = document.createElement('a');
+    link.href = image;
+    link.download = `ascz_image_${Date.now()}.png`;
+    link.click();
+}
+
+let hudSelect = -1; // Current selected window
+const hudContainer = document.getElementById('hud-container');
+const hudWindows = document.querySelectorAll('.sub-hud');
+function selectHUDWindow(index) {
+    for (let i = 0; i < hudWindows.length; i++) {
+        hudWindows[i].style.opacity = i == index ? 1 : 0.3;
+        hudWindows[i].style.zIndex = i == index ? 1 : 0;
+    }
+}
+// A movable (drag) HUD window
+for (let i = 0; i < hudWindows.length; i++) {
+    const w = hudWindows[i];
+
+    let preX = 0, preY = 0;
+    let curX = 0, curY = 0;
+
+    w.onmousedown = (e) => {
+        let offsetX = e.clientX - w.getBoundingClientRect().left;
+        let offsetY = e.clientY - w.getBoundingClientRect().top;
+
+        document.onmousemove = (e) => {
+            let winW = window.innerWidth;
+            let winH = window.innerHeight;
+
+            let x = e.clientX - offsetX;
+            let y = e.clientY - offsetY;
+            curX = x; curY = y;
+
+            if (x < 0) x = 0;
+            if (y < 0) y = 0;
+            if (x + w.offsetWidth > winW - 1) x = winW - w.offsetWidth - 1;
+            if (y + w.offsetHeight > winH - 1) y = winH - w.offsetHeight - 1;
+
+            w.style.left = x + 'px';
+            w.style.top = y + 'px';
+        }
+
+        document.onmouseup = () => {
+            document.onmousemove = null;
+            document.onmouseup = null;
+        }
+    }
+
+    w.onclick = (e) => {
+        if (curX == preX && curY == preY) selectHUDWindow(i);
+        preX = curX; preY = curY;
+    }
+}
+
+// Event's variables
+let camSpd = 0.5;
+let mSens = 0.007;
+let pointerLock = false;
+
+// Canvas pointer lock
+canvas.onclick = () => canvas.requestPointerLock();
+document.addEventListener('pointerlockchange', () => {
+    pointerLock = document.pointerLockElement === canvas;
+    selectHUDWindow(-1);
+});
+canvas.addEventListener('mousemove', (e) => {
+    if (document.pointerLockElement !== canvas) return;
+
+    camera.yaw += e.movementX * mSens;
+    camera.pit -= e.movementY * mSens;
+    camera.update();
+});
+document.addEventListener('wheel', (e) => {
+    if (!pointerLock) return;
+
+    camera.fov += e.deltaY > 0 ? -5 : 5;
+    if (camera.fov < 10) camera.fov = 10;
+    if (camera.fov > 170) camera.fov = 170;
+});
+// Keyboard movement event
+const keys = {
+    // WASD keys
+    w: false, a: false, s: false, d: false,
+    // Shift and control keys
+    Shift: false, Control: false
+}
+function cameraMove() {
+    if (keys.w) {
+        camera.pos = Vec3f.add(camera.pos, Vec3f.mult(camera.forward, camSpd));
+    } else if (keys.s) {
+        camera.pos = Vec3f.sub(camera.pos, Vec3f.mult(camera.forward, camSpd));
+    }
+
+    if (keys.a) {
+        camera.pos = Vec3f.sub(camera.pos, Vec3f.mult(camera.right, camSpd));
+    } else if (keys.d) {
+        camera.pos = Vec3f.add(camera.pos, Vec3f.mult(camera.right, camSpd));
+    }
+}
+document.addEventListener('keydown', (e) => {
+    if (e.key in keys) keys[e.key] = true;
+    // Press Escape to exit pointer lock
+    if (e.key == "Escape") {
+        document.exitPointerLock();
+    }   
+
+    // Press Q to toggle super quality mode
+    if (e.key == "q") toggleSuperQuality();
+
+    // Press 1 -> N to toggle HUD windows
+    if (e.key >= "1" && e.key <= "9") {
+        let index = parseInt(e.key) - 1;
+        let input = document.getElementById(`hud-checkbox-${index}`);
+        if (input) input.checked = !input.checked;
+    }
+});
+document.addEventListener('keyup', (e) => {
+    if (e.key in keys) keys[e.key] = false;
+});
+
+// ============================================================ //
+// ========================= Vec3f ============================ //
+// ============================================================ //
+
+class Vec3f {
+    // Basic vector operations
+    static mult(v, s) {
+        return { x: v.x * s, y: v.y * s, z: v.z * s };
+    }
+    static add(v1, v2) {
+        return { x: v1.x + v2.x, y: v1.y + v2.y, z: v1.z + v2.z };
+    }
+    static sub(v1, v2) {
+        return { x: v1.x - v2.x, y: v1.y - v2.y, z: v1.z - v2.z };
+    }
+
+    static flip(v) {
+        return { x: -v.x, y: -v.y, z: -v.z }
+    }
+
+    // Vector operations
+    static cross(v1, v2) {
+        return {
+            x: v1.y * v2.z - v1.z * v2.y,
+            y: v1.z * v2.x - v1.x * v2.z,
+            z: v1.x * v2.y - v1.y * v2.x
+        };
+    }
+    static dot(v1, v2) {
+        return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
+    }
+    static mag(v) {
+        return Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+    }
+    static norm(v) {
+        const mag = Vec3f.mag(v);
+        return { x: v.x / mag, y: v.y / mag, z: v.z / mag };
+    }
+
+    // Other operations
+    static interpolate3fx3(v1, v2, v3, u, v) {
+        return {
+            x: v1.x * (1 - u - v) + v2.x * u + v3.x * v,
+            y: v1.y * (1 - u - v) + v2.y * u + v3.y * v,
+            z: v1.z * (1 - u - v) + v2.z * u + v3.z * v
+        }
+    }
+    static interpolate2fx3(v1, v2, v3, u, v) {
+        return {
+            x: v1.x * (1 - u - v) + v2.x * u + v3.x * v,
+            y: v1.y * (1 - u - v) + v2.y * u + v3.y * v
+        }
+    }
+
+    static lerp(v1, v2, t) {
+        return Vec3f.add(Vec3f.mult(v1, 1 - t), Vec3f.mult(v2, t));
+    }
+
+    // Debug
+    static toStr(v, fixed=2) {
+        return `${v.x.toFixed(fixed)}, ${v.y.toFixed(fixed)}, ${v.z.toFixed(fixed)}`;
+    }
+}
+
+// ============================================================ //
+// ========================= BVH ============================== //
+// ============================================================ //
+
+// Node: node cannot contain both child node and leaf
+class BVHnode {
+    constructor(node=[], isLeaf=false) {
+        this.min = { x: 0, y: 0, z: 0 };
+        this.max = { x: 0, y: 0, z: 0 };
+        this.node = node;
+        this.isLeaf = isLeaf;
+    }
+
+    static geometryAABB(geom) {
+        let min = {}, max = {};
+
+        switch (geom.type) {
+            case 0:
+                min.x = Math.min(geom.v1.x, Math.min(geom.v2.x, geom.v3.x));
+                min.y = Math.min(geom.v1.y, Math.min(geom.v2.y, geom.v3.y));
+                min.z = Math.min(geom.v1.z, Math.min(geom.v2.z, geom.v3.z));
+
+                max.x = Math.max(geom.v1.x, Math.max(geom.v2.x, geom.v3.x));
+                max.y = Math.max(geom.v1.y, Math.max(geom.v2.y, geom.v3.y));
+                max.z = Math.max(geom.v1.z, Math.max(geom.v2.z, geom.v3.z));
+                break;
+            case 1:
+                min.x = geom.pos.x - geom.radius;
+                min.y = geom.pos.y - geom.radius;
+                min.z = geom.pos.z - geom.radius;
+
+                max.x = geom.pos.x + geom.radius;
+                max.y = geom.pos.y + geom.radius;
+                max.z = geom.pos.z + geom.radius;
+                break;
+        }
+
+        return { min: min, max: max };
+    }
+
+    static combineAABB(min1, max1, min2, max2) {
+        let min = {
+            x: Math.min(min1.x, min2.x),
+            y: Math.min(min1.y, min2.y),
+            z: Math.min(min1.z, min2.z)
+        };
+        let max = {
+            x: Math.max(max1.x, max2.x),
+            y: Math.max(max1.y, max2.y),
+            z: Math.max(max1.z, max2.z)
+        };
+
+        return { min: min, max: max };
+    }
+
+    // Note: this isn't a binary tree, the node can have more than 2 children
+    updateAABB() {
+        if (this.isLeaf) {
+            for (let i = 0; i < this.node.length; i++) {
+                let geom = this.node[i];
+
+                let geomAABB = BVHnode.geometryAABB(geom);
+                let nodeAABB = BVHnode.combineAABB(
+                    this.min, this.max, geomAABB.min, geomAABB.max
+                );
+                this.min = nodeAABB.min;
+                this.max = nodeAABB.max;
+            }
+        } else {
+            for (let i = 0; i < this.node.length; i++) {
+                this.node[i].updateAABB();
+                this.min.x = Math.min(this.min.x, this.node[i].min.x);
+                this.min.y = Math.min(this.min.y, this.node[i].min.y);
+                this.min.z = Math.min(this.min.z, this.node[i].min.z);
+                this.max.x = Math.max(this.max.x, this.node[i].max.x);
+                this.max.y = Math.max(this.max.y, this.node[i].max.y);
+                this.max.z = Math.max(this.max.z, this.node[i].max.z);
+            }
+        }
+    }
+}
+
+class BVHflat {
+    constructor(data) {
+        // AABB
+        this.min = data.min;
+        this.max = data.max;
+        // Stackless skip
+        this.skip = data.skip || 0;
+        // For Leaf, note: l/r are for geometry index
+        this.isLeaf = data.isLeaf || false;
+        this.left = data.left || -1;
+        this.right = data.right || -1;
+        // For debug
+        this.disabled = false;
+    }
+}
+
+class StacklessBVH {
+    /* Important note:
+    The Stackless BVH class purposes is ONLY to create a flat BVH tree
+    Data from the BVHnode are expected to already be updated
+    */
+
+    constructor(stackBVH=new BVHnode()) {
+        this.flats = [];
+        this.skips = [];
+        this.geometry = [];
+
+        this.implement(stackBVH);
+    }
+
+    implement(stackBVH) {
+        let stackless = this.traverse(stackBVH, []);
+        this.flats = stackless.lArr;
+        this.skips = stackless.lOff;
+        this.geometry = stackless.lGeo;
+
+        for (let i = 0; i < this.flats.length; i++) {
+            this.flats[i].skip = this.skips[i];
+        }
+    }
+
+    traverse(node, geometry, depth=0) {
+        // Important values
+        let currentOffset = 0;
+        let localOffset = [];
+        let localArray = [];
+        let localGeometry = geometry;
+
+        if (node.isLeaf) {
+            let newFlat = new BVHflat({
+                min: node.min,
+                max: node.max,
+                isLeaf: true
+            });
+            newFlat.left = localGeometry.length;
+            newFlat.right = localGeometry.length + node.node.length;
+            localGeometry = localGeometry.concat(node.node);
+            localArray.push(newFlat);
+        } else {
+            let newFlat = new BVHflat({
+                min: node.min, max: node.max
+            });
+            newFlat.left = localGeometry.length;
+            localArray.push(newFlat);
+
+            for (let i = 0; i < node.node.length; i++) {
+                let local = this.traverse(node.node[i], localGeometry, depth + 1);
+                localArray = localArray.concat(local.lArr);
+                localOffset = localOffset.concat(local.lOff);
+                localGeometry = local.lGeo;
+                currentOffset += local.offset;
+            }
+
+            newFlat.right = localGeometry.length;
+        }
+
+        localOffset.unshift(currentOffset);
+
+        return {
+            offset: currentOffset + 1,
+            lOff: localOffset,
+            lArr: localArray,
+            lGeo: localGeometry
+        }
+    }
+
+    static flatToHTML(flats, varName="glbStackless", index=0) {
+        if (index >= flats.length) return { html: "", next: index };
+
+        function createButtonOnclick(index) {
+            return `onclick="toggleBVHButton(${varName}, ${index})"`;
+        }
+
+        const flat = flats[index];
+        let html = '';
+
+        if (!flat.isLeaf) {
+            html += `
+            <button class="bvh-index bvh-node-title" ${createButtonOnclick(index)}>
+                Idx ${index}
+            </button>
+            <div class="bvh-node">`;
+
+            let child = index + 1;
+            while (child <= index + flat.skip) {
+                let result = StacklessBVH.flatToHTML(flats, varName, child);
+                html += result.html;
+                child = result.next;
+            }
+
+            html += `</div>`;
+            return { html: html, next: child };
+        } else {
+            html += `<button class="bvh-index bvh-leaf" ${createButtonOnclick(index)}>
+                Idx ${index}
+            </button>`;
+            return { html: html, next: index + 1 };
+        }
+
+        return { html: html, next: index + 1 };
+    }
+}
+
+function toggleBVHButton(bvh, index) {
+    const bvhIndexButtons = document.querySelectorAll('.bvh-index');
+
+    const button = bvhIndexButtons[index];
+
+    bvh.flats[index].disabled = !bvh.flats[index].disabled;
+
+    button.style.opacity = bvh.flats[index].disabled ? 0.3 : 1;
+    if (button.classList.contains('bvh-node-title')) {
+        button.style.background = bvh.flats[index].disabled ? '#c33' : '#77d';
+
+        const node = button.nextElementSibling;
+        node.style.opacity = bvh.flats[index].disabled ? 0.3 : 1;
+    }
+    if (button.classList.contains('bvh-leaf')) {
+        button.style.borderLeft = bvh.flats[index].disabled ? '8px solid #f99' : '8px solid #9d9';
+    }
+}
+function reupdateAllBVHButtonStyle(bvh) {
+    const bvhIndexButtons = document.querySelectorAll('.bvh-index');
+
+    for (let i = 0; i < bvhIndexButtons.length; i++) {
+        const button = bvhIndexButtons[i];
+        button.style.opacity = bvh.flats[i].disabled ? 0.3 : 1;
+        if (button.classList.contains('bvh-node-title')) {
+            button.style.background = bvh.flats[i].disabled ? '#c33' : '#77d';
+
+            const node = button.nextElementSibling;
+            node.style.opacity = bvh.flats[i].disabled ? 0.3 : 1;
+        }
+        if (button.classList.contains('bvh-leaf')) {
+            button.style.borderLeft = bvh.flats[i].disabled ? '8px solid #f99' : '8px solid #9d9';
+        }
+    }
+}
+
+// ============================================================ //
+// ========================= Ray ============================== //
+// ============================================================ //
+
+class Ray {
+    constructor(origin={x:0,y:0,z:0}, direction={x:0,y:0,z:1}, Ni=1) {
+        this.origin = origin;
+        this.direction = direction;
+        this.Ni = Ni; // Refractive index
+    }
+
+    static rayReflect(dir, normal) {
+        return Vec3f.norm(Vec3f.sub(dir, Vec3f.mult(normal, 2 * Vec3f.dot(dir, normal))));
+    }
+
+    static rayRefract(dir, normal, Ni2) {
+        let Ni = 1;
+        let cosI = -Vec3f.dot(dir, normal);
+        if (cosI < 0) cosI = -cosI;
+        else [Ni, Ni2] = [Ni2, Ni];
+
+        let n = Ni / Ni2;
+        let cosT2 = 1 - n * n * (1 - cosI * cosI);
+
+        if (cosT2 < 0) return Ray.rayReflect(dir, normal);
+
+        return Vec3f.norm(Vec3f.add(
+            Vec3f.mult(dir, n),
+            Vec3f.mult(normal, n * cosI - Math.sqrt(cosT2))
+        ));
+    }
+
+    static rayIntersectAABB(ray, bvh) {
+        let tmin = (bvh.min.x - ray.origin.x) / ray.direction.x;
+        let tmax = (bvh.max.x - ray.origin.x) / ray.direction.x;
+
+        if (tmin > tmax) [tmin, tmax] = [tmax, tmin];
+
+        let tymin = (bvh.min.y - ray.origin.y) / ray.direction.y;
+        let tymax = (bvh.max.y - ray.origin.y) / ray.direction.y;
+
+        if (tymin > tymax) [tymin, tymax] = [tymax, tymin];
+
+        if (tymin > tmin) tmin = tymin;
+        if (tymax < tmax) tmax = tymax;
+
+        let tzmin = (bvh.min.z - ray.origin.z) / ray.direction.z;
+        let tzmax = (bvh.max.z - ray.origin.z) / ray.direction.z;
+
+        if (tzmin > tzmax) [tzmin, tzmax] = [tzmax, tzmin];
+
+        return (tmin < tzmax && tzmin < tmax);
+    }
+
+    static traverseStacklessBVH(ray, bvh) {
+        let clstGeom = null;
+        let clstZ = 1000000;
+        let clstUV = { u: 0, v: 0 };
+
+        for (let i = 0; i < bvh.flats.length; i++) {
+            let flat = bvh.flats[i];
+
+            if (!Ray.rayIntersectAABB(ray, flat) || flat.disabled) {
+                i += flat.skip; continue;
+            }
+
+            if (flat.isLeaf) {
+                for (let j = flat.left; j < flat.right; j++) {
+                    let geom = bvh.geometry[j];
+                    if (geom == null || geom.disabled) continue;
+
+                    let intersect = Geometry.intersect(ray, geom);
+
+                    if (intersect.i && intersect.z < clstZ) {
+                        clstGeom = geom;
+                        clstZ = intersect.z;
+                        clstUV = intersect.uv;
+                    }
+                }
+            }
+        }
+
+        return { geom: clstGeom, z: clstZ, uv: clstUV };    
+    }
+
+    static recursiveRayTracing(ray, bvh, depth, superQuality=false) {
+        let intersect = Ray.traverseStacklessBVH(ray, bvh);
+        let geom = intersect.geom;
+        let z = intersect.z;
+        let uv = intersect.uv;
+
+        if (geom == null || depth == 0) {
+            return {
+                vertex: null,
+                normal: null,
+                color: { r: 0, g: 0, b: 0 }
+            };
+        }
+
+        let result = Geometry.interpolate(ray, geom, z, uv);
+        let vertex = result.vertex;
+        let normal = result.normal;
+        let color = result.color;
+    
+        if (geom.skybox) {
+            return {
+                vertex: vertex,
+                normal: normal,
+                color: color
+            };
+        }
+
+        let baseColor = { r: color.r, g: color.g, b: color.b };
+        let shadeColor = { r: 0, g: 0, b: 0 };
+
+        // Will be replaced with a proper material system
+        let material = { ambient: 0.2, diffuse: 0.9, specular: 0.5, shininess: 32 };
+
+        let lightCount = 0;
+        for (let i = 0; i < lightSrcs.length; i++) {
+            let light = lightSrcs[i];
+            if (light.disabled) continue;
+    
+            let origin = Vec3f.add(vertex, Vec3f.mult(normal, 0.001));
+            let lightDir = Vec3f.norm(Vec3f.sub(light.pos, vertex));
+            let lightDist = Vec3f.mag(Vec3f.sub(light.pos, vertex));
+            let shadowRay = new Ray(origin, lightDir);
+
+            let intersect = Ray.traverseStacklessBVH(shadowRay, bvh);
+
+            let inLight = intersect.geom == null || intersect.z > lightDist;
+            if (!inLight) continue
+
+            let viewDir = Vec3f.norm(Vec3f.sub(camera.pos, vertex));
+            let lightReflect = Ray.rayReflect(Vec3f.flip(lightDir), normal);
+
+            let diff = Vec3f.dot(lightDir, normal);
+            let spec = Math.pow(Vec3f.dot(viewDir, lightReflect), material.shininess);
+
+            lightCount++;
+            shadeColor.r += (baseColor.r * material.diffuse * diff + material.specular * spec) * light.color.r;
+            shadeColor.g += (baseColor.g * material.diffuse * diff + material.specular * spec) * light.color.g;
+            shadeColor.b += (baseColor.b * material.diffuse * diff + material.specular * spec) * light.color.b;
+        }
+
+        // Reduce intensity of the shadeColor with multiple light based on a non-linear function
+        let lightIntensity = Math.pow(0.7, lightCount - 1);
+        shadeColor.r *= lightIntensity;
+        shadeColor.g *= lightIntensity;
+        shadeColor.b *= lightIntensity;
+
+        if (lightCount > 0) {
+            color.r = Math.min(Math.max(shadeColor.r, 0), 255);
+            color.g = Math.min(Math.max(shadeColor.g, 0), 255);
+            color.b = Math.min(Math.max(shadeColor.b, 0), 255);
+        } else {
+            color.r = baseColor.r;
+            color.g = baseColor.g;
+            color.b = baseColor.b;
+        }
+
+        if (geom.reflective && geom.reflective > 0) {
+            let origin = Vec3f.add(vertex, Vec3f.mult(normal, 0.001));
+            let reflectDir = Ray.rayReflect(ray.direction, normal);
+
+            let reflectRay = new Ray(origin, reflectDir);
+            let reflectResult = Ray.recursiveRayTracing(reflectRay, bvh, depth-1, superQuality);
+
+            // Blend the color based on the result
+            color.r = color.r * (1 - geom.reflective) + reflectResult.color.r * geom.reflective;
+            color.g = color.g * (1 - geom.reflective) + reflectResult.color.g * geom.reflective;
+            color.b = color.b * (1 - geom.reflective) + reflectResult.color.b * geom.reflective;
+        }
+
+        // Supposed to be refractive, but for now just do transparency
+        if (geom.transparent && geom.transparent > 0 ) {
+            let origin = Vec3f.add(vertex, Vec3f.mult(ray.direction, 0.001));
+    
+            let refractRay = new Ray(origin, ray.direction);
+            let refractResult = Ray.recursiveRayTracing(refractRay, bvh, depth - 1, superQuality);  
+    
+            // Blend the color based on the result
+            color.r = color.r * (1 - geom.transparent) + refractResult.color.r * geom.transparent;
+            color.g = color.g * (1 - geom.transparent) + refractResult.color.g * geom.transparent;
+            color.b = color.b * (1 - geom.transparent) + refractResult.color.b * geom.transparent;
+        }
+
+        if (lightCount == 0) {
+            let diff = Math.abs(Vec3f.dot(ray.direction, normal));
+            color.r = color.r * material.ambient * diff;
+            color.g = color.g * material.ambient * diff;
+            color.b = color.b * material.ambient * diff;
+        }
+
+        return {
+            vertex: vertex,
+            normal: normal,
+            color: color
+        };
+    }
+}
+
+// ============================================================ //
+// ========================= Geometry ========================= //
+// ============================================================ //  
+
+class Geometry {
+    static intersect(ray, geom) {
+        switch (geom.type) {
+            case 0: return Geometry.intersectTriangle(ray, geom);
+            case 1: return Geometry.intersectSphere(ray, geom);
+        }
+    }
+
+    // ========= Intersection ========= //
+
+    static intersectTriangle(ray, geom) {
+        let result = { i: false, z: 0, uv: { u: 0, v: 0 } };
+
+        let e1 = Vec3f.sub(geom.v2, geom.v1);
+        let e2 = Vec3f.sub(geom.v3, geom.v1);
+        let h = Vec3f.cross(ray.direction, e2);
+        let a = Vec3f.dot(e1, h);
+
+        if (a > -0.00001 && a < 0.00001) return result;
+
+        let f = 1 / a;
+        let s = Vec3f.sub(ray.origin, geom.v1);
+        let u = f * Vec3f.dot(s, h);
+
+        if (u < 0 || u > 1) return result;
+
+        let q = Vec3f.cross(s, e1);
+        let v = f * Vec3f.dot(ray.direction, q);
+
+        if (v < 0 || u + v > 1) return result;
+
+        let z = f * Vec3f.dot(e2, q);
+
+        if (z > 0.00001) {
+            result.i = true;
+            result.z = z;
+            result.uv = { u: u, v: v };
+        }
+
+        return result;
+    }
+
+    static intersectSphere(ray, geom) {
+        let result = { i: false, z: 0, uv: { u: 0, v: 0 } };
+
+        let l = Vec3f.sub(geom.pos, ray.origin);
+        let tca = Vec3f.dot(l, ray.direction);
+        let d2 = Vec3f.dot(l, l) - tca * tca;
+
+        if (d2 > geom.radius * geom.radius) return result;
+
+        let thc = Math.sqrt(geom.radius * geom.radius - d2);
+        let t0 = tca - thc;
+        let t1 = tca + thc;
+
+        if (t0 < 0) t0 = t1;
+
+        let z = t0;
+
+        if (z > 0.00001) {
+            result.i = true;
+            result.z = z;
+        }
+
+        return result;
+    }
+    
+    // ========= Interpolation ========= //
+    static interpolate(ray, geom, clstZ, clstUV) {
+        switch (geom.type) {
+            case 0: return Geometry.interpTriangle(ray, geom, clstZ, clstUV);
+            case 1: return Geometry.interpSphere(ray, geom, clstZ);
+        }
+    }
+
+    static interpTriangle(ray, geom, clstZ, clstUV) {
+        let vertex = Vec3f.add(ray.origin, Vec3f.mult(ray.direction, clstZ));
+        let normal = Vec3f.interpolate3fx3(geom.n1, geom.n2, geom.n3, clstUV.u, clstUV.v);
+        normal = Vec3f.norm(normal);
+        let color = { r: 0, g: 0, b: 0 };
+
+        if (geom.texture != null && textures[geom.texture]) {
+            let tex = textures[geom.texture];
+
+            let texCoord = Vec3f.interpolate2fx3(geom.t1, geom.t2, geom.t3, clstUV.u, clstUV.v);
+
+            // Wrap around if texture is repeated
+            if (texCoord.x < 0) texCoord.x = 1 - texCoord.x;
+            if (texCoord.y < 0) texCoord.y = 1 - texCoord.y;
+
+            texCoord.x = texCoord.x - Math.floor(texCoord.x);
+            texCoord.y = texCoord.y - Math.floor(texCoord.y);
+
+            let tx = Math.floor(texCoord.x * tex.width);
+            let ty = Math.floor(texCoord.y * tex.height);
+            let texColor = tex.data[tx + ty * tex.width];
+
+            color = {
+                r: texColor.r,
+                g: texColor.g,
+                b: texColor.b
+            }
+        } else {
+            // Interpolate color
+            clstUV.w = 1 - clstUV.u - clstUV.v;
+            color = {
+                r: geom.c1.r * clstUV.w + geom.c2.r * clstUV.u + geom.c3.r * clstUV.v,
+                g: geom.c1.g * clstUV.w + geom.c2.g * clstUV.u + geom.c3.g * clstUV.v,
+                b: geom.c1.b * clstUV.w + geom.c2.b * clstUV.u + geom.c3.b * clstUV.v
+            }
+        }
+
+        return { vertex: vertex, normal: normal, color: color };
+    }
+
+    static interpSphere(ray, geom, clstZ) {
+        let vertex = Vec3f.add(ray.origin, Vec3f.mult(ray.direction, clstZ));
+        let normal = (geom.skybox || geom.inverse) ?
+            Vec3f.norm(Vec3f.sub(geom.pos, vertex)) :
+            Vec3f.norm(Vec3f.sub(vertex, geom.pos));
+
+        let color = {
+            r: geom.color.r,
+            g: geom.color.g,
+            b: geom.color.b
+        }
+        if (geom.texture != null && textures[geom.texture]) {
+            let tex = textures[geom.texture];
+
+            let phi = Math.acos(-normal.y);
+            let theta = Math.atan2(-normal.z, -normal.x) + Math.PI;
+            let u = theta / (2 * Math.PI);
+            let v = phi / Math.PI;
+
+            let tx = Math.floor(u * tex.width);
+            let ty = Math.floor(v * tex.height);
+            let texColor = tex.data[tx + ty * tex.width];
+
+            color = { r: texColor.r, g: texColor.g, b: texColor.b }
+        }
+
+        // If sphere is a skybox
+        if (geom.skybox) return {
+            vertex: vertex,
+            normal: normal,
+            color: color,
+            newRay: { recursive: false },
+            noShadow: true
+        }
+
+        return { vertex: vertex, normal: normal, color: color };
+    }
+}
+
+// ============================================================ //
+// ========================= Camera =========================== //
+// ============================================================ //
+
+class Camera {
+    constructor() {
+        this.pos = { x: 0, y: 0, z: 0 };
+
+        this.yaw = 0;
+        this.pit = 0;
+
+        this.fov = 90;
+
+        this.forward = { x: 0, y: 0, z: 1 };
+        this.right = { x: 1, y: 0, z: 0 };
+        this.up = { x: 0, y: 1, z: 0 };
+    }
+
+    restrictRot() {
+        // Restrict pit to -PI/2 to PI/2
+        if (this.pit <= -Math.PI / 2) this.pit = -Math.PI / 2 + 0.001;
+        else if (this.pit >= Math.PI / 2) this.pit = Math.PI / 2 - 0.001;
+
+        // Restrict yaw to -2PI to 2PI
+        if (this.yaw <= 0) this.yaw += Math.PI * 2;
+        else if (this.yaw >= Math.PI * 2) this.yaw -= Math.PI * 2;
+    }
+
+    updateView() {
+        this.forward = {
+            x: Math.sin(this.yaw) * Math.cos(this.pit),
+            y: Math.sin(this.pit),
+            z: Math.cos(this.yaw) * Math.cos(this.pit)
+        };
+        this.forward = Vec3f.norm(this.forward);
+
+        this.right = Vec3f.cross({ x: 0, y: 1, z: 0 }, this.forward);
+        this.right = Vec3f.norm(this.right);
+
+        this.up = Vec3f.cross(this.forward, this.right);
+        this.up = Vec3f.norm(this.up);
+    }
+
+    update() {
+        this.restrictRot();
+        this.updateView();
+    }
+
+    getScrnNDC(x, y, w, h) {
+        return {
+            x: (2 * x - w) / w,
+            y: (h - 2 * y) / h
+        }
+    }
+
+    generateRay(x, y, w, h) {
+        let ndc = this.getScrnNDC(x, y, w, h);
+
+        let tanFov = Math.tan(this.fov * Math.PI / 360);
+
+        let rayDir = Vec3f.add(
+            this.forward,
+            Vec3f.add(
+                Vec3f.mult(this.right, ndc.x * tanFov * w / h),
+                Vec3f.mult(this.up, ndc.y * tanFov)
+            )
+        );
+
+        rayDir = Vec3f.norm(rayDir);
+
+        return new Ray(this.pos, rayDir);
+    }
+}
+
+const camera = new Camera();
+camera.pos = { x: 0, y: 5, z: 0 };
+
+// ============================================================ //
+// ========================= Textures ========================= //
+// ============================================================ //
+
+// Flattened array of texture image data
+let textures = [];
+
+document.getElementById('hud-image-loader').addEventListener('change', function (e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const imgURL = URL.createObjectURL(file);
+    extractTexture(imgURL);
+});
+
+function extractTexture(src) {
+    const texture = document.createElement('canvas');
+    const tctx = texture.getContext('2d');
+    const img = new Image();
+
+    img.onload = function () {
+        texture.width = img.width;
+        texture.height = img.height;
+        tctx.drawImage(img, 0, 0);
+
+        const imgData = tctx.getImageData(0, 0, img.width, img.height).data;
+        const colors = new Array(img.width * img.height);
+
+        for (let i = 0; i < imgData.length; i += 4) {
+            colors[i / 4] = {
+                r: imgData[i],
+                g: imgData[i + 1],
+                b: imgData[i + 2]
+            };
+        }
+
+        textures.push({ width: img.width, height: img.height, data: colors });
+    };
+
+    img.onerror = (err) => console.error("Failed to load image:", err);
+    img.src = src;
+}
+
+// ============================================================ //
+// ========================= Lights =========================== //
+// ============================================================ //
+
+// Multiple lightSrcs
+let lightSrcs = [{
+    pos: { x:10, y:10, z:10 },
+    follow: true, disabled: false,
+    color: { r: 1, g: 1, b: 1}
+}];
+let removeLightSrc = (i) => {
+    lightSrcs.splice(i, 1);
+}
+let toggleLightFollow = (i) => {
+    lightSrcs[i].follow = !lightSrcs[i].follow;
+}
+
+// ============================================================ //
+// ========================= Scene ============================ //
+// ============================================================ //
+
+// Some Geometry
+
+let boxY = -0.5;
+let boxWidth = 16;
+let boxHeight = 5;
+
+let boxVertices = [
+    { x: -boxWidth, y: boxY, z: -boxWidth },
+    { x: -boxWidth, y: boxY, z: boxWidth },
+    { x: -boxWidth, y: boxY + boxHeight, z: -boxWidth },
+    { x: -boxWidth, y: boxY + boxHeight, z: boxWidth },
+    { x: boxWidth, y: boxY, z: -boxWidth },
+    { x: boxWidth, y: boxY, z: boxWidth },
+    { x: boxWidth, y: boxY + boxHeight, z: -boxWidth },
+    { x: boxWidth, y: boxY + boxHeight, z: boxWidth }
+]
+let boxNormals = [ // Facing inwards
+    { x: 1, y: 0, z: 0 },
+    { x: -1, y: 0, z: 0 },
+    { x: 0, y: 1, z: 0 },
+    { x: 0, y: -1, z: 0 },
+    { x: 0, y: 0, z: 1 },
+    { x: 0, y: 0, z: -1 }
+]
+let box = [
+    // Negative x (wall)
+    { v1: boxVertices[0], v2: boxVertices[2], v3: boxVertices[3], n1: boxNormals[0], n2: boxNormals[0], n3: boxNormals[0] },
+    { v1: boxVertices[0], v2: boxVertices[3], v3: boxVertices[1], n1: boxNormals[0], n2: boxNormals[0], n3: boxNormals[0] },
+    // Positive x (wall)
+    { v1: boxVertices[4], v2: boxVertices[7], v3: boxVertices[6], n1: boxNormals[1], n2: boxNormals[1], n3: boxNormals[1] },
+    { v1: boxVertices[4], v2: boxVertices[5], v3: boxVertices[7], n1: boxNormals[1], n2: boxNormals[1], n3: boxNormals[1] },
+    // Negative y (floor)
+    { v1: boxVertices[0], v2: boxVertices[1], v3: boxVertices[5], n1: boxNormals[2], n2: boxNormals[2], n3: boxNormals[2] },
+    { v1: boxVertices[0], v2: boxVertices[5], v3: boxVertices[4], n1: boxNormals[2], n2: boxNormals[2], n3: boxNormals[2] },
+    // Positive y (ceiling)
+    { v1: boxVertices[2], v2: boxVertices[6], v3: boxVertices[7], n1: boxNormals[3], n2: boxNormals[3], n3: boxNormals[3] },
+    { v1: boxVertices[2], v2: boxVertices[7], v3: boxVertices[3], n1: boxNormals[3], n2: boxNormals[3], n3: boxNormals[3] },
+    // Negative z (wall)
+    { v1: boxVertices[0], v2: boxVertices[4], v3: boxVertices[6], n1: boxNormals[4], n2: boxNormals[4], n3: boxNormals[4] },
+    { v1: boxVertices[0], v2: boxVertices[6], v3: boxVertices[2], n1: boxNormals[4], n2: boxNormals[4], n3: boxNormals[4] },
+    // Positive z (wall)
+    { v1: boxVertices[1], v2: boxVertices[3], v3: boxVertices[7], n1: boxNormals[5], n2: boxNormals[5], n3: boxNormals[5] },
+    { v1: boxVertices[1], v2: boxVertices[7], v3: boxVertices[5], n1: boxNormals[5], n2: boxNormals[5], n3: boxNormals[5] }
+];
+let boxColor = { r: 155, g: 205, b: 255 };
+boxColor = { r: 255, g: 255, b: 255 };  
+for (let i = 0; i < box.length; i++) {
+    box[i].type = 0;
+    box[i].c1 = boxColor;
+    box[i].c2 = boxColor;
+    box[i].c3 = boxColor;
+    // Additional attributes if needed
+}
+
+/* Better algorithm for splitting spheres:
+
+The idea is that it is always possible to split the spheres into 4 groups
+For those 4 groups, we can check if they can be split into 4 groups again
+And again, and again, until it is undividable by 2 one one of the 2 axis Ox or Oz
+*/
+
+let sphereObjs = [];
+// Grid of mxnxh spheres
+let h = 1, m = 4, n = 4;
+let u = 4;
+for (let i = -m; i < m; i++) {
+for (let j = -n; j < n; j++) {
+for (let k = 0; k < h; k++) {
+    sphereObjs.push({
+        type: 1,
+        pos: { x: i*u+u/2, y: k*u+0.5, z: j*u+u/2},
+        radius: 1,
+        color: {
+            r: 155 + 100 * Math.random(),
+            g: 155 + 100 * Math.random(),
+            b: 155 + 100 * Math.random()
+        },
+        reflective: 0.4
+    });
+}}}
+
+let splitCount = 0;
+let row = m*2, col = n*2;
+while (row%2==0 && col%2==0 && row+col>4) {
+    row /= 2;
+    col /= 2;
+    splitCount++;
+}
+
+let sphereNode = new BVHnode([], false);
+
+function recursiveSphereSplit(spheres, parent, depth, cx, cy, row, col) {
+    if (depth == splitCount) {
+        parent.isLeaf = true;
+        parent.node = spheres;
+        return;
+    }
+
+    let newSpheres = [
+        [], [], [], []
+    ];
+    for (let i = 0; i < spheres.length; i++) {
+        let sphere = spheres[i];
+
+        if (sphere.pos.x < cx*u) {
+            if (sphere.pos.z < cy*u) newSpheres[0].push(sphere); // Top left
+            else newSpheres[1].push(sphere); // Bottom left
+        } else {
+            if (sphere.pos.z < cy*u) newSpheres[2].push(sphere); // Top right
+            else newSpheres[3].push(sphere); // Bottom right
+        }
+    };
+
+    let data = [
+        {cx: cx - row/4, cy: cy - col/4, row: row/2, col: col/2},
+        {cx: cx - row/4, cy: cy + col/4, row: row/2, col: col/2},
+        {cx: cx + row/4, cy: cy - col/4, row: row/2, col: col/2},
+        {cx: cx + row/4, cy: cy + col/4, row: row/2, col: col/2}
+    ];
+
+    for (let i = 0; i < 4; i++) {
+        parent.node.push(new BVHnode([]));
+        recursiveSphereSplit(
+            newSpheres[i], parent.node[i], depth + 1,
+            data[i].cx, data[i].cy, data[i].row, data[i].col
+        );
+    }
+}
+recursiveSphereSplit(sphereObjs, sphereNode, 0, 0, 0, 2*m, 2*n);
+
+// Other geometry
+let boxNode = new BVHnode(box, true);
+
+// Create a wall in the middle of the box to separate the box
+let wallN1 = { x: 0, y: 0, z: -1 };
+let wallN2 = { x: 0, y: 0, z: 1 };
+let wallC = boxColor;
+
+let wall1a = {
+    type: 0,
+    v1: { x: -boxWidth, y: boxY, z: -0.01 },
+    v2: { x: -boxWidth, y: boxY + boxHeight, z: -0.01 },
+    v3: { x: boxWidth, y: boxY + boxHeight, z: -0.01 },
+    n1: wallN1, n2: wallN1, n3: wallN1,
+    c1: wallC, c2: wallC, c3: wallC
+};
+let wall1b = {
+    type: 0,
+    v1: { x: boxWidth, y: boxY, z: -0.01 },
+    v2: { x: boxWidth, y: boxY + boxHeight, z: -0.01 },
+    v3: { x: -boxWidth, y: boxY, z: -0.01 },
+    n1: wallN1, n2: wallN1, n3: wallN1,
+    c1: wallC, c2: wallC, c3: wallC
+};
+let wall2a = {
+    type: 0,
+    v1: { x: -boxWidth, y: boxY, z: 0.01 },
+    v2: { x: -boxWidth, y: boxY + boxHeight, z: 0.01 },
+    v3: { x: boxWidth, y: boxY + boxHeight, z: 0.01 },
+    n1: wallN2, n2: wallN2, n3: wallN2,
+    c1: wallC, c2: wallC, c3: wallC
+};
+let wall2b = {
+    type: 0,
+    v1: { x: boxWidth, y: boxY, z: 0.01 },
+    v2: { x: boxWidth, y: boxY + boxHeight, z: 0.01 },
+    v3: { x: -boxWidth, y: boxY, z: 0.01 },
+    n1: wallN2, n2: wallN2, n3: wallN2,
+    c1: wallC, c2: wallC, c3: wallC
+};
+
+let wallNode = new BVHnode([wall1a, wall1b, wall2a, wall2b], true);
+for (let wall of wallNode.node) {
+    wall.reflective = 0.4;
+}
+
+box[4].reflective = 0.4;
+box[5].reflective = 0.4;
+box[4].texture = 1;
+box[5].texture = 1;
+box[4].t1 = { x: 0, y: 1 };
+box[4].t2 = { x: 0, y: 0 };
+box[4].t3 = { x: 1, y: 0 };
+box[5].t1 = { x: 0, y: 1 };
+box[5].t2 = { x: 1, y: 0 };
+box[5].t3 = { x: 1, y: 1 };
+// Remove the ceiling
+box.splice(6, 2);
+let floorNode = new BVHnode([box[4], box[5]], true);
+
+let skyboxNode = new BVHnode([{
+    type: 1,
+    pos: { x: 0, y: 0, z: 0 },
+    radius: 2000,
+    // Blue-ish by default
+    color: { r: 70, g: 130, b: 180 },
+    texture: 0,
+    skybox: true
+}], true);
+
+let ballsNode = new BVHnode([
+{
+    type: 1,
+    pos: { x: 0, y: 0.5, z: boxWidth / 2 },
+    radius: 1,
+    color: { r: 255, g: 255, b: 255 },
+    reflective: 0.4
+},
+{
+    type: 1,
+    pos: { x: 0, y: 0.5, z: -boxWidth / 2 },
+    radius: 1,
+    color: { r: 255, g: 255, b: 255 },
+    reflective: 0.4
+}
+], true);
+
+const stackBVH = new BVHnode([
+    sphereNode,
+    // ballsNode,
+    // wallNode,
+    // boxNode,
+    floorNode,
+    skyboxNode
+]);
+stackBVH.updateAABB();
+
+const glbStackless = new StacklessBVH(stackBVH);
+console.log(glbStackless);
+
+// Some settings
+let scale = 10;
+let width = Math.floor(window.innerWidth / scale);
+let height = Math.floor(window.innerHeight / scale);
+
+let superQuality = false;
+
+function toggleSuperQuality() {
+    superQuality = !superQuality;
+    if (superQuality) {
+        scale = 1;
+        width = window.innerWidth;
+        height = window.innerHeight;
+    } else {
+        scale = 10;
+        width = Math.floor(window.innerWidth / scale);
+        height = Math.floor(window.innerHeight / scale);
+    }
+
+    // In super quality mode, turn off the interval
+    if (superQuality) {
+        clearInterval(interval);
+        document.exitPointerLock();
+        renderQuality();
+
+        staticUpdateHud();
+        runtimeUpdateHud();
+    } else {
+        interval = setInterval(renderFast, 1000 / 60);
+    }
+}
+window.onresize = () => {
+    // Ignore resizing in super quality mode
+    if (superQuality) return;
+
+    resizeCanvas(window.innerWidth, window.innerHeight);
+    width = Math.floor(window.innerWidth / scale);
+    height = Math.floor(window.innerHeight / scale);
+}
+
+function aliasUpdate(id, value) {
+    document.getElementById(id).innerHTML = value;
+}
+
+function runtimeUpdateHud() {
+    aliasUpdate("hud-camera-pos", Vec3f.toStr(camera.pos));
+    aliasUpdate("hud-camera-yaw", `${camera.yaw.toFixed(2)}rad | ${(camera.yaw * 180 / Math.PI).toFixed(2)}°`);
+    aliasUpdate("hud-camera-pit", `${camera.pit.toFixed(2)}rad | ${(camera.pit * 180 / Math.PI).toFixed(2)}°`);
+    aliasUpdate("hud-camera-fov", `${camera.fov}°`);
+    aliasUpdate("hud-camera-fw", Vec3f.toStr(camera.forward));
+    aliasUpdate("hud-camera-rt", Vec3f.toStr(camera.right));
+    aliasUpdate("hud-camera-up", Vec3f.toStr(camera.up));
+
+    const hudLight = document.getElementsByClassName("hud-light");
+    const hudLightPos = document.getElementsByClassName("hud-light-pos");
+    const hudLightFollow = document.getElementsByClassName("hud-light-follow");
+    const hudLightColor = document.getElementsByClassName("hud-light-color");
+
+    for (let i = 0; i < lightSrcs.length; i++) {
+        if (!hudLight[i]) continue;
+
+        hudLight[i].style.border = `1px solid ${lightSrcs[i].disabled?'#f99':'#9f9'}`;
+
+        hudLightPos[i].innerHTML = `| Position: (${Vec3f.toStr(lightSrcs[i].pos)})`;
+        hudLightFollow[i].innerHTML = `| Follow: ${lightSrcs[i].follow?
+            "<span style='color:#9f9'>[ON]</span>":
+            "<span style='color:#f99'>[OFF]</span>"
+        }`;
+
+        hudLightColor[i].innerHTML = `| Color: (${lightSrcs[i].color.r}, ${lightSrcs[i].color.g}, ${lightSrcs[i].color.b})`;
+        hudLightColor[i].style.color = `rgb(${lightSrcs[i].color.r*255}, ${lightSrcs[i].color.g*255}, ${lightSrcs[i].color.b*255})`;
+    }
+}
+function staticUpdateHud() {
+    // Update Light Sources Container
+    const hudLightContainer = document.getElementById("hud-light-container");
+    hudLightContainer.innerHTML = "";
+    for (let i = 0; i < lightSrcs.length; i++) {
+        hudLightContainer.innerHTML += (`
+        <div class="hud-light" style="color:#fff;">
+            <h2>Light ${i + 1}</h2>
+            <h3 class="hud-light-pos"></h3>
+            <h3 class="hud-light-follow"></h3>
+            <h3 class="hud-light-color"></h3>
+            <div>
+                <button onclick="toggleLightFollow(${i})">Follow</button>
+                <button onclick="lightSrcs[${i}].disabled=!lightSrcs[${i}].disabled">Toggle</button>
+                <button onclick="removeLightSrc(${i});staticUpdateHud()">Remove</button>
+            </div>
+        </div>
+        `);
+    }
+    hudLightContainer.innerHTML += (`
+    <button class="hud-cool-button" onclick="
+        lightSrcs.push({pos:{x:0,y:0,z:0},follow:true,color:{r:1,g:1,b:1}});
+        staticUpdateHud()
+    ">
+        <h1>Add Light</h1>
+        <h2>+1</h2>
+    </button>
+    `);
+
+    // Update the BVH structure
+    const hudBVHContainer = document.getElementById("hud-bvh-container");
+    hudBVHContainer.innerHTML = StacklessBVH.flatToHTML(glbStackless.flats).html;
+    reupdateAllBVHButtonStyle(glbStackless);
+};
+staticUpdateHud();
+
+let fps = 0;
+let frameCount = 0;
+let lastTime = Date.now();
+
+// Fast render (low quality)
+function renderFast() {
+    for (light of lightSrcs) {
+        if (light.follow) {
+            light.pos = camera.pos;
+        }
+    }
+
+    frameCount++;
+    let currentTime = Date.now();
+    if (currentTime - lastTime >= 1000) {
+        fps = frameCount;
+        frameCount = 0;
+        lastTime = currentTime;
+    }
+
+    // Paint everything black
+    ctx.clearRect(0, 0, width * scale, height * scale);
+    ctx.fillStyle = 'black';
+    ctx.fillRect(0, 0, width * scale, height * scale);
+
+    // Trying out the recursion
+    for (let x = 0; x < width; x++) {
+        for (let y = 0; y < height; y++) {
+            let ray = camera.generateRay(x, y, width, height);
+            let result = Ray.recursiveRayTracing(ray, glbStackless, 4, false);
+
+            ctx.fillStyle = `rgb(${result.color.r}, ${result.color.g}, ${result.color.b})`;
+            ctx.fillRect(x * scale, y * scale, scale, scale);
+        }
+    }
+
+
+    // ====================================================== //
+    // Processes that mostly don't contribute to the pipeline //
+    // ====================================================== //
+    cameraMove();
+
+    // Draw a crosshair
+    ctx.strokeStyle = 'white';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(width / 2 * scale, height / 2 * scale - 4);
+    ctx.lineTo(width / 2 * scale, height / 2 * scale + 4);
+    ctx.moveTo(width / 2 * scale - 4, height / 2 * scale);
+    ctx.lineTo(width / 2 * scale + 4, height / 2 * scale);
+    ctx.stroke();
+
+    // Update the HUD
+    runtimeUpdateHud();
+}
+
+// A renderer that isn't time sensitive
+// (Basically you can take as much time as you want)
+// (Tho still try to make it fast using acceleration structures like BVH or something)
+function renderQuality() {
+    // Paint everything black
+    ctx.clearRect(0, 0, width * scale, height * scale);
+    ctx.fillStyle = 'black';
+    ctx.fillRect(0, 0, width * scale, height * scale);
+
+    let colorBuffer = new Array(width * height);
+    let luminanceBuffer = new Array(width * height); // For FXAA
+    for (let x = 0; x < width; x++) {
+        for (let y = 0; y < height; y++) {
+            let ray = camera.generateRay(x, y, width, height);
+            let result = Ray.recursiveRayTracing(ray, glbStackless, 10, true);
+
+            colorBuffer[x + y * width] = result.color;
+            luminanceBuffer[x + y * width] = result.color.r * 0.299 + result.color.g * 0.587 + result.color.b * 0.114;
+
+            ctx.fillStyle = `rgb(${result.color.r}, ${result.color.g}, ${result.color.b})`;
+            ctx.fillRect(x * scale, y * scale, scale, scale);
+        }
+    }
+}
+
+let interval = setInterval(renderFast, 1000 / 60);
+
+</script>
+</html>
