@@ -8,7 +8,7 @@ A working ray tracing engine made in HTML, what the actual fuck is wrong with me
 
 Open the html file, that's LITERALLY IT
 
-Press 4, press Load Texture, throw in the sky texture you want
+Press 4, then press Load Texture, throw in the sky texture you want
 Press other things and stuffs to do other cool shits
 
 Use mouse, keyboard and shit to move around and see things, idk?
