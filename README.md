@@ -6,7 +6,7 @@ A working ray tracing engine made in HTML, what the actual fuck is wrong with me
 
 ### Guide, I guess?
 
-Open the html file, that's LITERALLY IT
+Open the html file, that's LITERALLY IT, you don't even need internet
 
 Press 4, then press Load Texture, throw in the sky texture you want
 Press other things and stuffs to do other cool shits
