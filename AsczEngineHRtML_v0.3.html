@@ -889,7 +889,6 @@ class Ray {
         if (geom.reflective && geom.reflective > 0) {
             let origin = Vec3f.add(vertex, Vec3f.mult(normal, 0.001));
             let reflectDir = Ray.rayReflect(ray.direction, normal);
-
             let reflectRay = new Ray(origin, reflectDir);
             let reflectResult = Ray.recursiveRayTracing(reflectRay, bvh, depth-1, superQuality);
 
@@ -902,7 +901,6 @@ class Ray {
         // Supposed to be refractive, but for now just do transparency
         if (geom.transparent && geom.transparent > 0 ) {
             let origin = Vec3f.add(vertex, Vec3f.mult(ray.direction, 0.001));
-    
             let refractRay = new Ray(origin, ray.direction);
             let refractResult = Ray.recursiveRayTracing(refractRay, bvh, depth - 1, superQuality);  
     
@@ -912,6 +910,61 @@ class Ray {
             color.b = color.b * (1 - geom.transparent) + refractResult.color.b * geom.transparent;
         }
 
+        // Debug material attributes
+
+        if (geom.debug1 && geom.debug1 > 0) {
+            // Phone screen like effect using Schlick's approximation
+            let cosTheta = Math.abs(Vec3f.dot(Vec3f.flip(ray.direction), normal));
+
+            // For the time being there's no IOR, so just use 1, which cancels out the equation
+            let refl = Math.pow(1 - cosTheta, 4);
+
+            let origin = Vec3f.add(vertex, Vec3f.mult(normal, 0.001));
+            let reflectDir = Ray.rayReflect(ray.direction, normal);
+            let reflectRay = new Ray(origin, reflectDir);
+            let reflectResult = Ray.recursiveRayTracing(reflectRay, bvh, depth-1, superQuality);
+
+            let blend = {
+                r: color.r * (1 - refl) + reflectResult.color.r * refl,
+                g: color.g * (1 - refl) + reflectResult.color.g * refl,
+                b: color.b * (1 - refl) + reflectResult.color.b * refl
+            }
+
+            color.r = color.r * (1 - geom.debug1) + blend.r * geom.debug1;
+            color.g = color.g * (1 - geom.debug1) + blend.g * geom.debug1;
+            color.b = color.b * (1 - geom.debug1) + blend.b * geom.debug1;
+        }
+
+        if (geom.debug2 && geom.debug2 > 0) {
+            // Phone screen like effect using Schlick's approximation
+            let cosTheta = Math.abs(Vec3f.dot(Vec3f.flip(ray.direction), normal));
+
+            // For the time being there's no IOR, so just use 1, which cancels out the equation
+            let refl = Math.pow(1 - cosTheta, 1);
+
+            let origin1 = Vec3f.add(vertex, Vec3f.mult(normal, 0.001));
+            let reflectDir = Ray.rayReflect(ray.direction, normal);
+            let reflectRay = new Ray(origin1, reflectDir);
+            let reflectResult = Ray.recursiveRayTracing(reflectRay, bvh, depth-1, superQuality);
+
+            let origin2 = Vec3f.add(vertex, Vec3f.mult(ray.direction, 0.001));
+
+            let goThroughRay = new Ray(origin2, ray.direction);
+            let goThroughResult = Ray.recursiveRayTracing(goThroughRay, bvh, depth-1, superQuality);
+
+            // Blend the 2 color based on the result
+            let blend = {
+                r: reflectResult.color.r * refl + goThroughResult.color.r * (1 - refl),
+                g: reflectResult.color.g * refl + goThroughResult.color.g * (1 - refl),
+                b: reflectResult.color.b * refl + goThroughResult.color.b * (1 - refl)
+            }
+
+            color.r = color.r * (1 - geom.debug2) + blend.r * geom.debug2;
+            color.g = color.g * (1 - geom.debug2) + blend.g * geom.debug2;
+            color.b = color.b * (1 - geom.debug2) + blend.b * geom.debug2;  
+        }
+
+        // Shadows
         if (lightCount == 0) {
             let diff = Math.abs(Vec3f.dot(ray.direction, normal));
             color.r = color.r * material.ambient * diff;
@@ -1210,11 +1263,18 @@ function extractTexture(src) {
 // ============================================================ //
 
 // Multiple lightSrcs
-let lightSrcs = [{
-    pos: { x:10, y:10, z:10 },
-    follow: true, disabled: false,
-    color: { r: 1, g: 1, b: 1}
-}];
+let lightSrcs = [
+{
+    pos: { x:0, y:5, z:-10 },
+    follow: false, disabled: false,
+    color: { r: 0.6, g: 0.6, b: 1}
+},
+{
+    pos: { x:0, y:5, z:10 },
+    follow: false, disabled: false,
+    color: { r: 1, g: 0.6, b: 0.6}
+}
+];
 let removeLightSrc = (i) => {
     lightSrcs.splice(i, 1);
 }
@@ -1362,7 +1422,7 @@ let boxNode = new BVHnode(box, true);
 // Create a wall in the middle of the box to separate the box
 let wallN1 = { x: 0, y: 0, z: -1 };
 let wallN2 = { x: 0, y: 0, z: 1 };
-let wallC = boxColor;
+let wallC = { r: 0, g: 225, b: 0 };
 
 let wall1a = {
     type: 0,
@@ -1397,13 +1457,13 @@ let wall2b = {
     c1: wallC, c2: wallC, c3: wallC
 };
 
-let wallNode = new BVHnode([wall1a, wall1b, wall2a, wall2b], true);
+let wallNode = new BVHnode([wall2a, wall2b], true);
 for (let wall of wallNode.node) {
-    wall.reflective = 0.4;
+    wall.debug2 = 0.8;
 }
 
-box[4].reflective = 0.4;
-box[5].reflective = 0.4;
+box[4].reflective = 0;
+box[5].reflective = 0;
 box[4].texture = 1;
 box[5].texture = 1;
 box[4].t1 = { x: 0, y: 1 };
@@ -1429,24 +1489,22 @@ let skyboxNode = new BVHnode([{
 let ballsNode = new BVHnode([
 {
     type: 1,
-    pos: { x: 0, y: 0.5, z: boxWidth / 2 },
+    pos: { x: -5, y: 0.5, z: boxWidth / 10 },
     radius: 1,
-    color: { r: 255, g: 255, b: 255 },
-    reflective: 0.4
+    color: { r: 255, g: 0, b: 0 }
 },
 {
     type: 1,
-    pos: { x: 0, y: 0.5, z: -boxWidth / 2 },
+    pos: { x: 5, y: 0.5, z: -boxWidth / 10 },
     radius: 1,
-    color: { r: 255, g: 255, b: 255 },
-    reflective: 0.4
+    color: { r: 0, g: 0, b: 255 }
 }
 ], true);
 
 const stackBVH = new BVHnode([
-    sphereNode,
-    // ballsNode,
-    // wallNode,
+    //sphereNode,
+    ballsNode,
+    wallNode,
     // boxNode,
     floorNode,
     skyboxNode
