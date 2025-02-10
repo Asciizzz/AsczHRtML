@@ -563,7 +563,7 @@ class BVH {
         this.geoms = [];
         this.ABs = [];
 
-        this.gIdx = [];
+        this.gIdxs = [];
 
         this.root = new Node();
 
@@ -590,7 +590,7 @@ class BVH {
             }
 
             this.ABs.push(ab);
-            this.gIdx.push(i);
+            this.gIdxs.push(i);
 
             this.root.ab.expand(ab.min);
             this.root.ab.expand(ab.max);
@@ -624,24 +624,24 @@ class BVH {
         let bestLab, bestRab;
 
         for (let a = 0; a < 3; ++a) {
-            // Sort the gIdx by the centroid of the AABB
+            // Sort the gIdxs by the centroid of the AABB
             
             /* Do something similar
-            std::sort(allGIdx.begin() + node.ll, allGIdx.begin() + node.lr, [&](int i1, int i2) {
+            std::sort(allGIdxs.begin() + node.ll, allGIdxs.begin() + node.lr, [&](int i1, int i2) {
                 return ABs[i1].cent()[bestAxis] < ABs[i2].cent()[bestAxis];
             });
             */
 
-            // Splice specifc range (node.ll to node.lr) and sort by centroid
-            let specifcGIdx = this.gIdx.slice(node.ll, node.lr);
-            specifcGIdx.sort((i1, i2) => {
+            // Splice specific range (node.ll to node.lr) and sort by centroid
+            let specificGIdxs = this.gIdxs.slice(node.ll, node.lr);
+            specificGIdxs.sort((i1, i2) => {
                 let c1 = Vec3f.mult(Vec3f.add(this.ABs[i1].min, this.ABs[i1].max), 0.5);
                 let c2 = Vec3f.mult(Vec3f.add(this.ABs[i2].min, this.ABs[i2].max), 0.5);
 
                 return a == 0 ? c1.x - c2.x : a == 1 ? c1.y - c2.y : c1.z - c2.z;
             });
             // Combine the sorted array back to the original array
-            this.gIdx.splice(node.ll, specifcGIdx.length, ...specifcGIdx);
+            this.gIdxs.splice(node.ll, specificGIdxs.length, ...specificGIdxs);
 
             for (let b = 0; b < this.BIN_COUNT; ++b) {
                 let l = new Node();
@@ -654,7 +654,7 @@ class BVH {
                 let splitIdx = node.ll;
 
                 for (let g = node.ll; g < node.lr; ++g) {
-                    let i = this.gIdx[g];
+                    let i = this.gIdxs[g];
 
                     let cent = a == 0 ? (this.ABs[i].min.x + this.ABs[i].max.x) * 0.5 :
                                a == 1 ? (this.ABs[i].min.y + this.ABs[i].max.y) * 0.5 :
@@ -689,14 +689,14 @@ class BVH {
         }
 
         // Splice (ll->lr), sort and combine
-        let specifcGIdx = this.gIdx.slice(node.ll, node.lr);
-        specifcGIdx.sort((i1, i2) => {
+        let specificGIdxs = this.gIdxs.slice(node.ll, node.lr);
+        specificGIdxs.sort((i1, i2) => {
             let c1 = Vec3f.mult(Vec3f.add(this.ABs[i1].min, this.ABs[i1].max), 0.5);
             let c2 = Vec3f.mult(Vec3f.add(this.ABs[i2].min, this.ABs[i2].max), 0.5);
 
             return bestAxis == 0 ? c1.x - c2.x : bestAxis == 1 ? c1.y - c2.y : c1.z - c2.z;
         }); 
-        this.gIdx.splice(node.ll, specifcGIdx.length, ...specifcGIdx);
+        this.gIdxs.splice(node.ll, specificGIdxs.length, ...specificGIdxs);
 
         let l = new Node();
         l.ab = bestLab.ab;
@@ -761,7 +761,7 @@ class Ray {
         ));
     }
 
-    static trace(primray, nodes, geoms, gIdx, superQuality=false) {
+    static raytrace(primray, nodes, geoms, gIdxs, lSrcs) {
         let rstack = Array(64);
         let rs_top = 0;
         rstack[rs_top++] = primray;
@@ -795,14 +795,12 @@ class Ray {
                     if (lDist < 0 && rDist < 0) continue;
                     else if (lDist < 0) nstack[ns_top++] = node.cr;
                     else if (rDist < 0) nstack[ns_top++] = node.cl;
-                    else {
-                        if (lDist < rDist) {
-                            nstack[ns_top++] = node.cl;
-                            nstack[ns_top++] = node.cr;
-                        } else {
-                            nstack[ns_top++] = node.cr;
-                            nstack[ns_top++] = node.cl;
-                        }
+                    else if (lDist < rDist) {
+                        nstack[ns_top++] = node.cl;
+                        nstack[ns_top++] = node.cr;
+                    } else {
+                        nstack[ns_top++] = node.cr;
+                        nstack[ns_top++] = node.cl;
                     }
 
                     continue;
@@ -810,8 +808,7 @@ class Ray {
 
                 // If node a leaf
                 for (let i = node.ll; i < node.lr; ++i) {
-                    const g = gIdx[i];
-                    const geom = geoms[g];
+                    const geom = geoms[gIdxs[i]];
 
                     const result = Geometry.intersect(ray, geom);
 
@@ -826,12 +823,119 @@ class Ray {
 
             if (hit.i == -1) continue;
 
-            const geom = geoms[gIdx[hit.i]];
+            const gIdx = gIdxs[hit.i];
+            const gHit = geoms[gIdx];
+
+            let interp = Geometry.interpolate(ray, gHit, hit.t, hit.u, hit.v);
+            let vrtx = interp.v, nrml = interp.n, colr = interp.c;
+
+            let NdotR = Vec3f.dot(nrml, ray.direction);
+            NdotR = NdotR < 0 ? -NdotR : NdotR;
+
+            let finalColr = {
+                r: colr.r * NdotR * 0.2,
+                g: colr.g * NdotR * 0.2,
+                b: colr.b * NdotR * 0.2
+            };
+
+            for (let l = 0; l < lSrcs.length; ++l) {
+                const lSrc = lSrcs[l];
+
+                let lPos = lSrc.pos;
+                let lDir = Vec3f.sub(vrtx, lPos);
+                let lDist = Vec3f.mag(lDir);
+                lDir = Vec3f.norm(lDir);
+
+                let lRay = new Ray(lPos, lDir);
+
+                let lI = lSrc.intensity;
+                let passColr = lSrc.color;
+
+                let shadow = false;
+
+                ns_top = 0;
+                nstack[ns_top++] = 0;
+
+                while (ns_top > 0) {
+                    const nIdx = nstack[--ns_top];
+                    const node = nodes[nIdx];
+
+                    let hitDist = node.hitDist(lRay);
+                    if (hitDist < 0 || hitDist > lDist) continue;
+
+                    if (node.cl > -1) {
+                        let lDist = nodes[node.cl].hitDist(lRay);
+                        let rDist = nodes[node.cr].hitDist(lRay);
+
+                        if (lDist < 0 && rDist < 0) continue;
+                        else if (lDist < 0) nstack[ns_top++] = node.cr;
+                        else if (rDist < 0) nstack[ns_top++] = node.cl;
+                        else if (lDist < rDist) {
+                            nstack[ns_top++] = node.cl;
+                            nstack[ns_top++] = node.cr;
+                        } else {
+                            nstack[ns_top++] = node.cr;
+                            nstack[ns_top++] = node.cl;
+                        }
+
+                        continue;
+                    }
+
+                    for (let i = node.ll; i < node.lr; ++i) {
+                        if (gIdxs[i] == gIdx) continue;
+
+                        const geom = geoms[gIdxs[i]];
+
+                        const result = Geometry.intersect(lRay, geom);
+
+                        if (result.i && result.z < lDist) {
+                            shadow = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (shadow) continue;
+
+                let NdotL = -Vec3f.dot(nrml, lDir);
+
+                let diff = {
+                    r: colr.r * NdotL,
+                    g: colr.g * NdotL,
+                    b: colr.b * NdotL
+                };
+
+                let refl = Ray.rayReflect(Vec3f.flip(lDir), nrml);
+                let spec = {
+                    r: 0.4 * Math.pow(Vec3f.dot(refl, Vec3f.flip(ray.direction)), 32),
+                    g: 0.4 * Math.pow(Vec3f.dot(refl, Vec3f.flip(ray.direction)), 32),
+                    b: 0.4 * Math.pow(Vec3f.dot(refl, Vec3f.flip(ray.direction)), 32)
+                }
+
+                finalColr.r += (diff.r + spec.r) * passColr.r * lI;
+                finalColr.g += (diff.g + spec.g) * passColr.g * lI;
+                finalColr.b += (diff.b + spec.b) * passColr.b * lI;
+            }
+
+            if (gHit.refl > 0.0) {
+                let reflD = Ray.rayReflect(ray.direction, nrml);
+                let reflO = Vec3f.add(vrtx, Vec3f.mult(reflD, 0.0001)); // Slight offset
+                let reflRay = new Ray(reflO, reflD, ray.Ni, ray.w * gHit.refl);
+
+                rstack[rs_top++] = reflRay;
+            }
             
-            resultColr.x += geom.c1.r * ray.w;
-            resultColr.y += geom.c1.g * ray.w;
-            resultColr.z += geom.c1.b * ray.w;
+            // Add result color
+            resultColr.x += finalColr.r * ray.w;
+            resultColr.y += finalColr.g * ray.w;
+            resultColr.z += finalColr.b * ray.w;
         }
+
+
+        // Clamp color
+        resultColr.x = resultColr.x > 1 ? 1 : resultColr.x;
+        resultColr.y = resultColr.y > 1 ? 1 : resultColr.y;
+        resultColr.z = resultColr.z > 1 ? 1 : resultColr.z;
 
         return resultColr;
     }
@@ -909,63 +1013,59 @@ class Geometry {
     }
     
     // ========= Interpolation ========= //
-    static interpolate(ray, geom, clstZ, clstUV) {
+    static interpolate(ray, geom, t, u, v) {
         switch (geom.type) {
-            case 0: return Geometry.interpTriangle(ray, geom, clstZ, clstUV);
-            case 1: return Geometry.interpSphere(ray, geom, clstZ);
+            case 0: return Geometry.interpTriangle(ray, geom, t, u, v);
+            case 1: return Geometry.interpSphere(ray, geom, t);
         }
     }
 
-    static interpTriangle(ray, geom, clstZ, clstUV) {
-        let vertex = Vec3f.add(ray.origin, Vec3f.mult(ray.direction, clstZ));
-        let normal = Vec3f.interpolate3fx3(geom.n1, geom.n2, geom.n3, clstUV.u, clstUV.v);
-        normal = Vec3f.norm(normal);
-        let color = { r: 0, g: 0, b: 0 };
+    static interpTriangle(ray, geom, t, u, v) {
+        let vrtx = Vec3f.add(ray.origin, Vec3f.mult(ray.direction, t));
+        let nrml = Vec3f.interpolate3fx3(geom.n1, geom.n2, geom.n3, u, v);
+        nrml = Vec3f.norm(nrml);
+        let colr = { r: 0, g: 0, b: 0 };
 
         if (geom.texture != null && textures[geom.texture]) {
             let tex = textures[geom.texture];
 
-            let texCoord = Vec3f.interpolate2fx3(geom.t1, geom.t2, geom.t3, clstUV.u, clstUV.v);
+            let txCoord = Vec3f.interpolate2fx3(geom.t1, geom.t2, geom.t3, u, v);
 
             // Wrap around if texture is repeated
-            if (texCoord.x < 0) texCoord.x = 1 - texCoord.x;
-            if (texCoord.y < 0) texCoord.y = 1 - texCoord.y;
+            if (txCoord.x < 0) txCoord.x = 1 - txCoord.x;
+            if (txCoord.y < 0) txCoord.y = 1 - txCoord.y;
 
-            texCoord.x = texCoord.x - Math.floor(texCoord.x);
-            texCoord.y = texCoord.y - Math.floor(texCoord.y);
+            txCoord.x = txCoord.x - Math.floor(txCoord.x);
+            txCoord.y = txCoord.y - Math.floor(txCoord.y);
 
-            let tx = Math.floor(texCoord.x * tex.width);
-            let ty = Math.floor(texCoord.y * tex.height);
-            let texColor = tex.data[tx + ty * tex.width];
+            let tx = Math.floor(txCoord.x * tex.width);
+            let ty = Math.floor(txCoord.y * tex.height);
+            let txColor = tex.data[tx + ty * tex.width];
 
-            color = {
-                r: texColor.r,
-                g: texColor.g,
-                b: texColor.b
-            }
+            colr = { r: txColor.r, g: txColor.g, b: txColor.b }
         } else {
             // Interpolate color
-            clstUV.w = 1 - clstUV.u - clstUV.v;
-            color = {
-                r: geom.c1.r * clstUV.w + geom.c2.r * clstUV.u + geom.c3.r * clstUV.v,
-                g: geom.c1.g * clstUV.w + geom.c2.g * clstUV.u + geom.c3.g * clstUV.v,
-                b: geom.c1.b * clstUV.w + geom.c2.b * clstUV.u + geom.c3.b * clstUV.v
+            let w = 1 - u - v;
+            colr = {
+                r: geom.c1.r * w + geom.c2.r * u + geom.c3.r * v,
+                g: geom.c1.g * w + geom.c2.g * u + geom.c3.g * v,
+                b: geom.c1.b * w + geom.c2.b * u + geom.c3.b * v
             }
         }
 
-        return { vertex: vertex, normal: normal, color: color };
+        return { v: vrtx, n: nrml, c: colr };
     }
 
-    static interpSphere(ray, geom, clstZ) {
-        let vertex = Vec3f.add(ray.origin, Vec3f.mult(ray.direction, clstZ));
-        let normal = (geom.skybox || geom.inverse) ?
-            Vec3f.norm(Vec3f.sub(geom.pos, vertex)) :
-            Vec3f.norm(Vec3f.sub(vertex, geom.pos));
+    static interpSphere(ray, geom, t) {
+        let vrtx = Vec3f.add(ray.origin, Vec3f.mult(ray.direction, t));
+        let nrml = (geom.skybox || geom.inverse) ?
+            Vec3f.norm(Vec3f.sub(geom.pos, vrtx)) :
+            Vec3f.norm(Vec3f.sub(vrtx, geom.pos));
 
-        let color = {
-            r: geom.color.r,
-            g: geom.color.g,
-            b: geom.color.b
+        let colr = {
+            r: geom.c.r,
+            g: geom.c.g,
+            b: geom.c.b
         }
         if (geom.texture != null && textures[geom.texture]) {
             let tex = textures[geom.texture];
@@ -977,21 +1077,12 @@ class Geometry {
 
             let tx = Math.floor(u * tex.width);
             let ty = Math.floor(v * tex.height);
-            let texColor = tex.data[tx + ty * tex.width];
+            let txColor = tex.data[tx + ty * tex.width];
 
-            color = { r: texColor.r, g: texColor.g, b: texColor.b }
+            colr = { r: txColor.r, g: txColor.g, b: txColor.b }
         }
 
-        // If sphere is a skybox
-        if (geom.skybox) return {
-            vertex: vertex,
-            normal: normal,
-            color: color,
-            newRay: { recursive: false },
-            noShadow: true
-        }
-
-        return { vertex: vertex, normal: normal, color: color };
+        return { v: vrtx, n: nrml, c: colr };
     }
 }
 
@@ -1122,14 +1213,18 @@ function extractTexture(src) {
 // Multiple lightSrcs
 let lightSrcs = [
 {
-    pos: { x:0, y:5, z:-10 },
-    follow: false, disabled: false,
-    color: { r: 0.6, g: 0.6, b: 1}
+    pos: { x:0, y:4, z:-10 },
+    color: { r: 0.6, g: 0.6, b: 1},
+    intensity: 1,
+
+    follow: false, disabled: false
 },
 {
-    pos: { x:0, y:5, z:10 },
-    follow: false, disabled: false,
-    color: { r: 1, g: 0.6, b: 0.6}
+    pos: { x:0, y:4, z:10 },
+    color: { r: 1, g: 0.6, b: 0.6},
+    intensity: 1,
+
+    follow: false, disabled: false
 }
 ];
 let removeLightSrc = (i) => {
@@ -1145,7 +1240,7 @@ let toggleLightFollow = (i) => {
 
 // Some Geometry
 
-let boxY = -0.5;
+let boxY = 0;
 let boxWidth = 16;
 let boxHeight = 5;
 
@@ -1187,8 +1282,8 @@ let box = [
     { v1: boxVertices[1], v2: boxVertices[3], v3: boxVertices[7], n1: boxNormals[5], n2: boxNormals[5], n3: boxNormals[5] },
     { v1: boxVertices[1], v2: boxVertices[7], v3: boxVertices[5], n1: boxNormals[5], n2: boxNormals[5], n3: boxNormals[5] }
 ];
-let boxColor = { r: 155, g: 205, b: 255 };
-boxColor = { r: 255, g: 255, b: 255 };  
+let boxColor = { r: 0.5, g: 0.5, b: 1 };
+boxColor = { r: 1, g: 1, b: 1 };
 for (let i = 0; i < box.length; i++) {
     box[i].type = 0;
     box[i].c1 = boxColor;
@@ -1200,7 +1295,7 @@ for (let i = 0; i < box.length; i++) {
 // Create a wall in the middle of the box to separate the box
 let wallN1 = { x: 0, y: 0, z: -1 };
 let wallN2 = { x: 0, y: 0, z: 1 };
-let wallC = { r: 0, g: 225, b: 0 };
+let wallC = { r: 0, g: 1, b: 0 };
 
 let wall1a = {
     type: 0,
@@ -1245,17 +1340,40 @@ box[4].t3 = { x: 1, y: 0 };
 box[5].t1 = { x: 0, y: 1 };
 box[5].t2 = { x: 1, y: 0 };
 box[5].t3 = { x: 1, y: 1 };
+
+box[4].refl = 0.5;
+box[5].refl = 0.5;
+
 // Remove the ceiling
 box.splice(6, 2);
 
+// Create a bunch of spheres
+let sphX = 7;
+let sphZ = 7;
+let sphR = 1;
+let sphU = 2;
+
+let spheres = [];
+for (let x = -sphX; x <= sphX; x += sphU) {
+    for (let z = -sphZ; z <= sphZ; z += sphU) {
+        spheres.push({
+            type: 1,
+            pos: { x: x * sphU, y: sphR, z: z * sphU },
+            radius: sphR,
+            c: { r: Math.random(), g: Math.random(), b: Math.random() },
+            // refl: 0.5
+        });
+    }
+}
+
 // Initialize BVH
 const bvh = new BVH();
-bvh.geoms.push(...box, wall1a, wall1b, wall2a, wall2b);
+bvh.geoms.push(...box, wall1a, wall1b, wall2a, wall2b, ...spheres);
 bvh.designBvh();
 
 
 // Some settings
-let scale = 10;
+let scale = 11;
 let width = Math.floor(window.innerWidth / scale);
 let height = Math.floor(window.innerHeight / scale);
 
@@ -1386,7 +1504,10 @@ function renderFast() {
     for (let x = 0; x < width; x++) {
         for (let y = 0; y < height; y++) {
             let ray = camera.generateRay(x, y, width, height);
-            let result = Ray.trace(ray, bvh.nodes, bvh.geoms, bvh.gIdx, superQuality);
+            let result = Ray.raytrace(
+                ray, bvh.nodes, bvh.geoms, bvh.gIdxs, lightSrcs
+            );
+            result.x *= 255; result.y *= 255; result.z *= 255;
 
             ctx.fillStyle = `rgb(${result.x}, ${result.y}, ${result.z})`;
             ctx.fillRect(x * scale, y * scale, scale, scale);
@@ -1416,21 +1537,18 @@ function renderFast() {
 // Super Quality render (high quality) (not clickbait) (cop's called) (gone wrong)
 function renderQuality() {
     // Paint everything black
-    ctx.clearRect(0, 0, width * scale, height * scale);
     ctx.fillStyle = 'black';
     ctx.fillRect(0, 0, width * scale, height * scale);
 
-    let colorBuffer = new Array(width * height);
-    let luminanceBuffer = new Array(width * height); // For FXAA
     for (let x = 0; x < width; x++) {
         for (let y = 0; y < height; y++) {
             let ray = camera.generateRay(x, y, width, height);
-            let result = Ray.trace(ray, glbStackless, 10, true);
+            let result = Ray.raytrace(
+                ray, bvh.nodes, bvh.geoms, bvh.gIdxs, lightSrcs
+            );
+            result.x *= 255; result.y *= 255; result.z *= 255;
 
-            colorBuffer[x + y * width] = result.color;
-            luminanceBuffer[x + y * width] = result.color.r * 0.299 + result.color.g * 0.587 + result.color.b * 0.114;
-
-            ctx.fillStyle = `rgb(${result.color.r}, ${result.color.g}, ${result.color.b})`;
+            ctx.fillStyle = `rgb(${result.x}, ${result.y}, ${result.z})`;
             ctx.fillRect(x * scale, y * scale, scale, scale);
         }
     }
