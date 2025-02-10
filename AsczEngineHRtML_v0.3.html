@@ -488,240 +488,243 @@ class Vec3f {
 // ========================= BVH ============================== //
 // ============================================================ //
 
-// Node: node cannot contain both child node and leaf
-class BVHnode {
-    constructor(node=[], isLeaf=false) {
-        this.min = { x: 0, y: 0, z: 0 };
-        this.max = { x: 0, y: 0, z: 0 };
-        this.node = node;
-        this.isLeaf = isLeaf;
+class AABB {
+    constructor(min={x:Infinity,y:Infinity,z:Infinity}, max={x:-Infinity,y:-Infinity,z:-Infinity}) {
+        this.min = min;
+        this.max = max;
     }
 
-    static geometryAABB(geom) {
-        let min = {}, max = {};
-
-        switch (geom.type) {
-            case 0:
-                min.x = Math.min(geom.v1.x, Math.min(geom.v2.x, geom.v3.x));
-                min.y = Math.min(geom.v1.y, Math.min(geom.v2.y, geom.v3.y));
-                min.z = Math.min(geom.v1.z, Math.min(geom.v2.z, geom.v3.z));
-
-                max.x = Math.max(geom.v1.x, Math.max(geom.v2.x, geom.v3.x));
-                max.y = Math.max(geom.v1.y, Math.max(geom.v2.y, geom.v3.y));
-                max.z = Math.max(geom.v1.z, Math.max(geom.v2.z, geom.v3.z));
-                break;
-            case 1:
-                min.x = geom.pos.x - geom.radius;
-                min.y = geom.pos.y - geom.radius;
-                min.z = geom.pos.z - geom.radius;
-
-                max.x = geom.pos.x + geom.radius;
-                max.y = geom.pos.y + geom.radius;
-                max.z = geom.pos.z + geom.radius;
-                break;
-        }
-
-        return { min: min, max: max };
+    expandMin(m) {
+        this.min.x = Math.min(this.min.x, m.x);
+        this.min.y = Math.min(this.min.y, m.y);         
+        this.min.z = Math.min(this.min.z, m.z);
+    }
+    expandMax(m) {
+        this.max.x = Math.max(this.max.x, m.x);
+        this.max.y = Math.max(this.max.y, m.y);         
+        this.max.z = Math.max(this.max.z, m.z);
     }
 
-    static combineAABB(min1, max1, min2, max2) {
-        let min = {
-            x: Math.min(min1.x, min2.x),
-            y: Math.min(min1.y, min2.y),
-            z: Math.min(min1.z, min2.z)
-        };
-        let max = {
-            x: Math.max(max1.x, max2.x),
-            y: Math.max(max1.y, max2.y),
-            z: Math.max(max1.z, max2.z)
-        };
-
-        return { min: min, max: max };
-    }
-
-    // Note: this isn't a binary tree, the node can have more than 2 children
-    updateAABB() {
-        if (this.isLeaf) {
-            for (let i = 0; i < this.node.length; i++) {
-                let geom = this.node[i];
-
-                let geomAABB = BVHnode.geometryAABB(geom);
-                let nodeAABB = BVHnode.combineAABB(
-                    this.min, this.max, geomAABB.min, geomAABB.max
-                );
-                this.min = nodeAABB.min;
-                this.max = nodeAABB.max;
-            }
-        } else {
-            for (let i = 0; i < this.node.length; i++) {
-                this.node[i].updateAABB();
-                this.min.x = Math.min(this.min.x, this.node[i].min.x);
-                this.min.y = Math.min(this.min.y, this.node[i].min.y);
-                this.min.z = Math.min(this.min.z, this.node[i].min.z);
-                this.max.x = Math.max(this.max.x, this.node[i].max.x);
-                this.max.y = Math.max(this.max.y, this.node[i].max.y);
-                this.max.z = Math.max(this.max.z, this.node[i].max.z);
-            }
-        }
+    expand(m) {
+        this.expandMin(m);
+        this.expandMax(m);
     }
 }
 
-class BVHflat {
-    constructor(data) {
-        // AABB
-        this.min = data.min;
-        this.max = data.max;
-        // Stackless skip
-        this.skip = data.skip || 0;
-        // For Leaf, note: l/r are for geometry index
-        this.isLeaf = data.isLeaf || false;
-        this.left = data.left || -1;
-        this.right = data.right || -1;
-        // For debug
-        this.disabled = false;
+class Node {
+    constructor() {
+        this.ab = new AABB();
+
+        this.cl = -1;
+        this.cr = -1;
+        this.ll = -1;
+        this.lr = -1;
+    }
+
+    hitDist(ray) {
+        let min = this.ab.min;
+        let max = this.ab.max;
+
+        let rO = ray.origin;
+        let rD = ray.direction; 
+
+        if (rO.x >= min.x && rO.x <= max.x &&
+            rO.y >= min.y && rO.y <= max.y &&
+            rO.z >= min.z && rO.z <= max.z) return 0.0;
+
+        let t1 = (min.x - rO.x) / rD.x;
+        let t2 = (max.x - rO.x) / rD.x;
+        let t3 = (min.y - rO.y) / rD.y;
+        let t4 = (max.y - rO.y) / rD.y;
+        let t5 = (min.z - rO.z) / rD.z;
+        let t6 = (max.z - rO.z) / rD.z;
+
+        let tmin = Math.max(Math.max(Math.min(t1, t2), Math.min(t3, t4)), Math.min(t5, t6));
+        let tmax = Math.min(Math.min(Math.max(t1, t2), Math.max(t3, t4)), Math.max(t5, t6));
+
+        if (tmax < tmin) return -1.0; // No intersection
+        if (tmin < 0.0) return -1.0; // Behind the ray
+        return tmin;
+    }
+
+    findCost() {
+        let size = Vec3f.sub(this.ab.max, this.ab.min);
+        let sa = size.x * size.y + size.y * size.z + size.z * size.x;
+
+        // Cost = Surface Area * Number of primitives
+        return sa * (this.lr - this.ll);
     }
 }
 
-class StacklessBVH {
-    /* Important note:
-    The Stackless BVH class purposes is ONLY to create a flat BVH tree
-    Data from the BVHnode are expected to already be updated
-    */
+class BVH {
+    constructor() {
+        this.nodes = [];
 
-    constructor(stackBVH=new BVHnode()) {
-        this.flats = [];
-        this.skips = [];
-        this.geometry = [];
+        this.geoms = [];
+        this.ABs = [];
 
-        this.implement(stackBVH);
+        this.gIdx = [];
+
+        this.root = new Node();
+
+        this.MAX_DEPTH = 10;
+        this.BIN_COUNT = 11;
+        this.NODE_FACE = 2;
     }
 
-    implement(stackBVH) {
-        let stackless = this.traverse(stackBVH, []);
-        this.flats = stackless.lArr;
-        this.skips = stackless.lOff;
-        this.geometry = stackless.lGeo;
+    calcAABB() {
+        for (let i = 0; i < this.geoms.length; i++) {
+            let geom = this.geoms[i];
+            let ab = new AABB();
 
-        for (let i = 0; i < this.flats.length; i++) {
-            this.flats[i].skip = this.skips[i];
+            switch (geom.type) {
+                case 0:
+                    ab.expand(geom.v1);
+                    ab.expand(geom.v2);
+                    ab.expand(geom.v3);
+                    break;
+                case 1:
+                    ab.min = Vec3f.sub(geom.pos, { x: geom.radius, y: geom.radius, z: geom.radius });
+                    ab.max = Vec3f.add(geom.pos, { x: geom.radius, y: geom.radius, z: geom.radius });   
+                    break;
+            }
+
+            this.ABs.push(ab);
+            this.gIdx.push(i);
+
+            this.root.ab.expand(ab.min);
+            this.root.ab.expand(ab.max);
         }
+
+        this.root.ll = 0;
+        this.root.lr = this.geoms.length;
     }
 
-    traverse(node, geometry, depth=0) {
-        // Important values
-        let currentOffset = 0;
-        let localOffset = [];
-        let localArray = [];
-        let localGeometry = geometry;
+    buildBvh(node, depth=0) {
+        this.nodes.push(node);
 
-        if (node.isLeaf) {
-            let newFlat = new BVHflat({
-                min: node.min,
-                max: node.max,
-                isLeaf: true
+        let idx = 0;
+
+        let nG = node.lr - node.ll;
+        if (nG <= this.NODE_FACE || depth >= this.MAX_DEPTH) {
+            node.cl = -1;
+            node.cr = -1;
+            return 1;
+        }
+
+        let nAB = node.ab;
+        let nABsize = Vec3f.sub(nAB.max, nAB.min);
+
+        let curCost = node.findCost();
+
+        let bestAxis = -1;
+        let bestSplit = -1;
+        let bestCost = curCost;
+
+        let bestLab, bestRab;
+
+        for (let a = 0; a < 3; ++a) {
+            // Sort the gIdx by the centroid of the AABB
+            
+            /* Do something similar
+            std::sort(allGIdx.begin() + node.ll, allGIdx.begin() + node.lr, [&](int i1, int i2) {
+                return ABs[i1].cent()[bestAxis] < ABs[i2].cent()[bestAxis];
             });
-            newFlat.left = localGeometry.length;
-            newFlat.right = localGeometry.length + node.node.length;
-            localGeometry = localGeometry.concat(node.node);
-            localArray.push(newFlat);
-        } else {
-            let newFlat = new BVHflat({
-                min: node.min, max: node.max
+            */
+
+            // Splice specifc range (node.ll to node.lr) and sort by centroid
+            let specifcGIdx = this.gIdx.slice(node.ll, node.lr);
+            specifcGIdx.sort((i1, i2) => {
+                let c1 = Vec3f.mult(Vec3f.add(this.ABs[i1].min, this.ABs[i1].max), 0.5);
+                let c2 = Vec3f.mult(Vec3f.add(this.ABs[i2].min, this.ABs[i2].max), 0.5);
+
+                return a == 0 ? c1.x - c2.x : a == 1 ? c1.y - c2.y : c1.z - c2.z;
             });
-            newFlat.left = localGeometry.length;
-            localArray.push(newFlat);
+            // Combine the sorted array back to the original array
+            this.gIdx.splice(node.ll, specifcGIdx.length, ...specifcGIdx);
 
-            for (let i = 0; i < node.node.length; i++) {
-                let local = this.traverse(node.node[i], localGeometry, depth + 1);
-                localArray = localArray.concat(local.lArr);
-                localOffset = localOffset.concat(local.lOff);
-                localGeometry = local.lGeo;
-                currentOffset += local.offset;
+            for (let b = 0; b < this.BIN_COUNT; ++b) {
+                let l = new Node();
+                let r = new Node();
+
+                let splitPoint = a == 0 ? nAB.min.x + nABsize.x * (b + 1) / this.BIN_COUNT :
+                                 a == 1 ? nAB.min.y + nABsize.y * (b + 1) / this.BIN_COUNT :
+                                          nAB.min.z + nABsize.z * (b + 1) / this.BIN_COUNT;
+
+                let splitIdx = node.ll;
+
+                for (let g = node.ll; g < node.lr; ++g) {
+                    let i = this.gIdx[g];
+
+                    let cent = a == 0 ? (this.ABs[i].min.x + this.ABs[i].max.x) * 0.5 :
+                               a == 1 ? (this.ABs[i].min.y + this.ABs[i].max.y) * 0.5 :
+                                        (this.ABs[i].min.z + this.ABs[i].max.z) * 0.5;
+
+                    if (cent < splitPoint) {
+                        l.ab.expand(this.ABs[i].min);
+                        l.ab.expand(this.ABs[i].max);
+                        splitIdx++;
+                    } else {
+                        r.ab.expand(this.ABs[i].min);
+                        r.ab.expand(this.ABs[i].max);
+                    }
+                }
+
+                let cost = l.findCost() + r.findCost();
+                
+                if (cost < bestCost) {
+                    bestCost = cost;
+                    bestAxis = a;
+                    bestSplit = splitIdx;
+                    bestLab = l;
+                    bestRab = r;
+                }
             }
-
-            newFlat.right = localGeometry.length;
         }
 
-        localOffset.unshift(currentOffset);
-
-        return {
-            offset: currentOffset + 1,
-            lOff: localOffset,
-            lArr: localArray,
-            lGeo: localGeometry
+        if (bestSplit == -1 || bestAxis == -1) {
+            node.cl = -1;
+            node.cr = -1;
+            return 1;
         }
+
+        // Splice (ll->lr), sort and combine
+        let specifcGIdx = this.gIdx.slice(node.ll, node.lr);
+        specifcGIdx.sort((i1, i2) => {
+            let c1 = Vec3f.mult(Vec3f.add(this.ABs[i1].min, this.ABs[i1].max), 0.5);
+            let c2 = Vec3f.mult(Vec3f.add(this.ABs[i2].min, this.ABs[i2].max), 0.5);
+
+            return bestAxis == 0 ? c1.x - c2.x : bestAxis == 1 ? c1.y - c2.y : c1.z - c2.z;
+        }); 
+        this.gIdx.splice(node.ll, specifcGIdx.length, ...specifcGIdx);
+
+        let l = new Node();
+        l.ab = bestLab.ab;
+        l.ll = node.ll; 
+        l.lr = bestSplit;   
+
+        let r = new Node(); 
+        r.ab = bestRab.ab;
+        r.ll = bestSplit;
+        r.lr = node.lr;
+
+        let curIdx = this.nodes.length - 1;
+
+        this.nodes[curIdx].cl = this.nodes.length;
+        idx += this.buildBvh(l, depth + 1);
+
+        this.nodes[curIdx].cr = this.nodes.length;
+        idx += this.buildBvh(r, depth + 1);
+
+        return idx + 1;
     }
 
-    static flatToHTML(flats, varName="glbStackless", index=0) {
-        if (index >= flats.length) return { html: "", next: index };
+    designBvh() {
+        this.calcAABB();
 
-        function createButtonOnclick(index) {
-            return `onclick="toggleBVHButton(${varName}, ${index})"`;
-        }
+        this.buildBvh(this.root);
 
-        const flat = flats[index];
-        let html = '';
-
-        if (!flat.isLeaf) {
-            html += `
-            <button class="bvh-index bvh-node-title" ${createButtonOnclick(index)}>
-                Idx ${index}
-            </button>
-            <div class="bvh-node">`;
-
-            let child = index + 1;
-            while (child <= index + flat.skip) {
-                let result = StacklessBVH.flatToHTML(flats, varName, child);
-                html += result.html;
-                child = result.next;
-            }
-
-            html += `</div>`;
-            return { html: html, next: child };
-        } else {
-            html += `<button class="bvh-index bvh-leaf" ${createButtonOnclick(index)}>
-                Idx ${index}
-            </button>`;
-            return { html: html, next: index + 1 };
-        }
-
-        return { html: html, next: index + 1 };
-    }
-}
-
-function toggleBVHButton(bvh, index) {
-    const bvhIndexButtons = document.querySelectorAll('.bvh-index');
-
-    const button = bvhIndexButtons[index];
-
-    bvh.flats[index].disabled = !bvh.flats[index].disabled;
-
-    button.style.opacity = bvh.flats[index].disabled ? 0.3 : 1;
-    if (button.classList.contains('bvh-node-title')) {
-        button.style.background = bvh.flats[index].disabled ? '#c33' : '#77d';
-
-        const node = button.nextElementSibling;
-        node.style.opacity = bvh.flats[index].disabled ? 0.3 : 1;
-    }
-    if (button.classList.contains('bvh-leaf')) {
-        button.style.borderLeft = bvh.flats[index].disabled ? '8px solid #f99' : '8px solid #9d9';
-    }
-}
-function reupdateAllBVHButtonStyle(bvh) {
-    const bvhIndexButtons = document.querySelectorAll('.bvh-index');
-
-    for (let i = 0; i < bvhIndexButtons.length; i++) {
-        const button = bvhIndexButtons[i];
-        button.style.opacity = bvh.flats[i].disabled ? 0.3 : 1;
-        if (button.classList.contains('bvh-node-title')) {
-            button.style.background = bvh.flats[i].disabled ? '#c33' : '#77d';
-
-            const node = button.nextElementSibling;
-            node.style.opacity = bvh.flats[i].disabled ? 0.3 : 1;
-        }
-        if (button.classList.contains('bvh-leaf')) {
-            button.style.borderLeft = bvh.flats[i].disabled ? '8px solid #f99' : '8px solid #9d9';
-        }
+        console.log(this.nodes);
     }
 }
 
@@ -730,10 +733,11 @@ function reupdateAllBVHButtonStyle(bvh) {
 // ============================================================ //
 
 class Ray {
-    constructor(origin={x:0,y:0,z:0}, direction={x:0,y:0,z:1}, Ni=1) {
+    constructor(origin={x:0,y:0,z:0}, direction={x:0,y:0,z:1}, Ni=1.0, w=1.0) {
         this.origin = origin;
         this.direction = direction;
         this.Ni = Ni; // Refractive index
+        this.w = w; // Weight
     }
 
     static rayReflect(dir, normal) {
@@ -757,226 +761,79 @@ class Ray {
         ));
     }
 
-    static rayIntersectAABB(ray, bvh) {
-        let tmin = (bvh.min.x - ray.origin.x) / ray.direction.x;
-        let tmax = (bvh.max.x - ray.origin.x) / ray.direction.x;
+    static trace(primray, nodes, geoms, gIdx, superQuality=false) {
+        let rstack = Array(64);
+        let rs_top = 0;
+        rstack[rs_top++] = primray;
 
-        if (tmin > tmax) [tmin, tmax] = [tmax, tmin];
+        let nstack = Array(64);
+        let ns_top = 0;
 
-        let tymin = (bvh.min.y - ray.origin.y) / ray.direction.y;
-        let tymax = (bvh.max.y - ray.origin.y) / ray.direction.y;
+        let resultColr = { x: 0, y: 0, z: 0 };
 
-        if (tymin > tymax) [tymin, tymax] = [tymax, tymin];
+        while (rs_top > 0) {
+            const ray = rstack[--rs_top];
 
-        if (tymin > tmin) tmin = tymin;
-        if (tymax < tmax) tmax = tymax;
+            if (ray.w < 0.01) continue;
 
-        let tzmin = (bvh.min.z - ray.origin.z) / ray.direction.z;
-        let tzmax = (bvh.max.z - ray.origin.z) / ray.direction.z;
+            let hit = { i: -1, t: Infinity, u: 0, v: 0 };
 
-        if (tzmin > tzmax) [tzmin, tzmax] = [tzmax, tzmin];
+            ns_top = 0;
+            nstack[ns_top++] = 0;
 
-        return (tmin < tzmax && tzmin < tmax);
-    }
+            while (ns_top > 0) {
+                const nIdx = nstack[--ns_top];
+                const node = nodes[nIdx];
 
-    static traverseStacklessBVH(ray, bvh) {
-        let clstGeom = null;
-        let clstZ = 1000000;
-        let clstUV = { u: 0, v: 0 };
+                let hitDist = node.hitDist(ray);
+                if (hitDist < 0 || hitDist > hit.t) continue;
 
-        for (let i = 0; i < bvh.flats.length; i++) {
-            let flat = bvh.flats[i];
+                if (node.cl > -1) { // Node not a leaf
+                    let lDist = nodes[node.cl].hitDist(ray);
+                    let rDist = nodes[node.cr].hitDist(ray);     
 
-            if (!Ray.rayIntersectAABB(ray, flat) || flat.disabled) {
-                i += flat.skip; continue;
-            }
+                    if (lDist < 0 && rDist < 0) continue;
+                    else if (lDist < 0) nstack[ns_top++] = node.cr;
+                    else if (rDist < 0) nstack[ns_top++] = node.cl;
+                    else {
+                        if (lDist < rDist) {
+                            nstack[ns_top++] = node.cl;
+                            nstack[ns_top++] = node.cr;
+                        } else {
+                            nstack[ns_top++] = node.cr;
+                            nstack[ns_top++] = node.cl;
+                        }
+                    }
 
-            if (flat.isLeaf) {
-                for (let j = flat.left; j < flat.right; j++) {
-                    let geom = bvh.geometry[j];
-                    if (geom == null || geom.disabled) continue;
+                    continue;
+                }
 
-                    let intersect = Geometry.intersect(ray, geom);
+                // If node a leaf
+                for (let i = node.ll; i < node.lr; ++i) {
+                    const g = gIdx[i];
+                    const geom = geoms[g];
 
-                    if (intersect.i && intersect.z < clstZ) {
-                        clstGeom = geom;
-                        clstZ = intersect.z;
-                        clstUV = intersect.uv;
+                    const result = Geometry.intersect(ray, geom);
+
+                    if (result.i && result.z < hit.t) {
+                        hit.i = i;
+                        hit.t = result.z;
+                        hit.u = result.uv.u;
+                        hit.v = result.uv.v;
                     }
                 }
             }
+
+            if (hit.i == -1) continue;
+
+            const geom = geoms[gIdx[hit.i]];
+            
+            resultColr.x += geom.c1.r * ray.w;
+            resultColr.y += geom.c1.g * ray.w;
+            resultColr.z += geom.c1.b * ray.w;
         }
 
-        return { geom: clstGeom, z: clstZ, uv: clstUV };    
-    }
-
-    static recursiveRayTracing(ray, bvh, depth, superQuality=false) {
-        let intersect = Ray.traverseStacklessBVH(ray, bvh);
-        let geom = intersect.geom;
-        let z = intersect.z;
-        let uv = intersect.uv;
-
-        if (geom == null || depth == 0) {
-            return {
-                vertex: null,
-                normal: null,
-                color: { r: 0, g: 0, b: 0 }
-            };
-        }
-
-        let result = Geometry.interpolate(ray, geom, z, uv);
-        let vertex = result.vertex;
-        let normal = result.normal;
-        let color = result.color;
-    
-        if (geom.skybox) {
-            return {
-                vertex: vertex,
-                normal: normal,
-                color: color
-            };
-        }
-
-        let baseColor = { r: color.r, g: color.g, b: color.b };
-        let shadeColor = { r: 0, g: 0, b: 0 };
-
-        // Will be replaced with a proper material system
-        let material = { ambient: 0.2, diffuse: 0.9, specular: 0.5, shininess: 32 };
-
-        let lightCount = 0;
-        for (let i = 0; i < lightSrcs.length; i++) {
-            let light = lightSrcs[i];
-            if (light.disabled) continue;
-    
-            let origin = Vec3f.add(vertex, Vec3f.mult(normal, 0.001));
-            let lightDir = Vec3f.norm(Vec3f.sub(light.pos, vertex));
-            let lightDist = Vec3f.mag(Vec3f.sub(light.pos, vertex));
-            let shadowRay = new Ray(origin, lightDir);
-
-            let intersect = Ray.traverseStacklessBVH(shadowRay, bvh);
-
-            let inLight = intersect.geom == null || intersect.z > lightDist;
-            if (!inLight) continue
-
-            let viewDir = Vec3f.norm(Vec3f.sub(camera.pos, vertex));
-            let lightReflect = Ray.rayReflect(Vec3f.flip(lightDir), normal);
-
-            let diff = Vec3f.dot(lightDir, normal);
-            let spec = Math.pow(Vec3f.dot(viewDir, lightReflect), material.shininess);
-
-            lightCount++;
-            shadeColor.r += (baseColor.r * material.diffuse * diff + material.specular * spec) * light.color.r;
-            shadeColor.g += (baseColor.g * material.diffuse * diff + material.specular * spec) * light.color.g;
-            shadeColor.b += (baseColor.b * material.diffuse * diff + material.specular * spec) * light.color.b;
-        }
-
-        // Reduce intensity of the shadeColor with multiple light based on a non-linear function
-        let lightIntensity = Math.pow(0.7, lightCount - 1);
-        shadeColor.r *= lightIntensity;
-        shadeColor.g *= lightIntensity;
-        shadeColor.b *= lightIntensity;
-
-        if (lightCount > 0) {
-            color.r = Math.min(Math.max(shadeColor.r, 0), 255);
-            color.g = Math.min(Math.max(shadeColor.g, 0), 255);
-            color.b = Math.min(Math.max(shadeColor.b, 0), 255);
-        } else {
-            color.r = baseColor.r;
-            color.g = baseColor.g;
-            color.b = baseColor.b;
-        }
-
-        if (geom.reflective && geom.reflective > 0) {
-            let origin = Vec3f.add(vertex, Vec3f.mult(normal, 0.001));
-            let reflectDir = Ray.rayReflect(ray.direction, normal);
-            let reflectRay = new Ray(origin, reflectDir);
-            let reflectResult = Ray.recursiveRayTracing(reflectRay, bvh, depth-1, superQuality);
-
-            // Blend the color based on the result
-            color.r = color.r * (1 - geom.reflective) + reflectResult.color.r * geom.reflective;
-            color.g = color.g * (1 - geom.reflective) + reflectResult.color.g * geom.reflective;
-            color.b = color.b * (1 - geom.reflective) + reflectResult.color.b * geom.reflective;
-        }
-
-        // Supposed to be refractive, but for now just do transparency
-        if (geom.transparent && geom.transparent > 0 ) {
-            let origin = Vec3f.add(vertex, Vec3f.mult(ray.direction, 0.001));
-            let refractRay = new Ray(origin, ray.direction);
-            let refractResult = Ray.recursiveRayTracing(refractRay, bvh, depth - 1, superQuality);  
-    
-            // Blend the color based on the result
-            color.r = color.r * (1 - geom.transparent) + refractResult.color.r * geom.transparent;
-            color.g = color.g * (1 - geom.transparent) + refractResult.color.g * geom.transparent;
-            color.b = color.b * (1 - geom.transparent) + refractResult.color.b * geom.transparent;
-        }
-
-        // Debug material attributes
-
-        if (geom.debug1 && geom.debug1 > 0) {
-            // Phone screen like effect using Schlick's approximation
-            let cosTheta = Math.abs(Vec3f.dot(Vec3f.flip(ray.direction), normal));
-
-            // For the time being there's no IOR, so just use 1, which cancels out the equation
-            let refl = Math.pow(1 - cosTheta, 4);
-
-            let origin = Vec3f.add(vertex, Vec3f.mult(normal, 0.001));
-            let reflectDir = Ray.rayReflect(ray.direction, normal);
-            let reflectRay = new Ray(origin, reflectDir);
-            let reflectResult = Ray.recursiveRayTracing(reflectRay, bvh, depth-1, superQuality);
-
-            let blend = {
-                r: color.r * (1 - refl) + reflectResult.color.r * refl,
-                g: color.g * (1 - refl) + reflectResult.color.g * refl,
-                b: color.b * (1 - refl) + reflectResult.color.b * refl
-            }
-
-            color.r = color.r * (1 - geom.debug1) + blend.r * geom.debug1;
-            color.g = color.g * (1 - geom.debug1) + blend.g * geom.debug1;
-            color.b = color.b * (1 - geom.debug1) + blend.b * geom.debug1;
-        }
-
-        if (geom.debug2 && geom.debug2 > 0) {
-            // Phone screen like effect using Schlick's approximation
-            let cosTheta = Math.abs(Vec3f.dot(Vec3f.flip(ray.direction), normal));
-
-            // For the time being there's no IOR, so just use 1, which cancels out the equation
-            let refl = Math.pow(1 - cosTheta, 1);
-
-            let origin1 = Vec3f.add(vertex, Vec3f.mult(normal, 0.001));
-            let reflectDir = Ray.rayReflect(ray.direction, normal);
-            let reflectRay = new Ray(origin1, reflectDir);
-            let reflectResult = Ray.recursiveRayTracing(reflectRay, bvh, depth-1, superQuality);
-
-            let origin2 = Vec3f.add(vertex, Vec3f.mult(ray.direction, 0.001));
-
-            let goThroughRay = new Ray(origin2, ray.direction);
-            let goThroughResult = Ray.recursiveRayTracing(goThroughRay, bvh, depth-1, superQuality);
-
-            // Blend the 2 color based on the result
-            let blend = {
-                r: reflectResult.color.r * refl + goThroughResult.color.r * (1 - refl),
-                g: reflectResult.color.g * refl + goThroughResult.color.g * (1 - refl),
-                b: reflectResult.color.b * refl + goThroughResult.color.b * (1 - refl)
-            }
-
-            color.r = color.r * (1 - geom.debug2) + blend.r * geom.debug2;
-            color.g = color.g * (1 - geom.debug2) + blend.g * geom.debug2;
-            color.b = color.b * (1 - geom.debug2) + blend.b * geom.debug2;  
-        }
-
-        // Shadows
-        if (lightCount == 0) {
-            let diff = Math.abs(Vec3f.dot(ray.direction, normal));
-            color.r = color.r * material.ambient * diff;
-            color.g = color.g * material.ambient * diff;
-            color.b = color.b * material.ambient * diff;
-        }
-
-        return {
-            vertex: vertex,
-            normal: normal,
-            color: color
-        };
+        return resultColr;
     }
 }
 
@@ -1340,85 +1197,6 @@ for (let i = 0; i < box.length; i++) {
     // Additional attributes if needed
 }
 
-/* Better algorithm for splitting spheres:
-
-The idea is that it is always possible to split the spheres into 4 groups
-For those 4 groups, we can check if they can be split into 4 groups again
-And again, and again, until it is undividable by 2 one one of the 2 axis Ox or Oz
-*/
-
-let sphereObjs = [];
-// Grid of mxnxh spheres
-let h = 1, m = 4, n = 4;
-let u = 4;
-for (let i = -m; i < m; i++) {
-for (let j = -n; j < n; j++) {
-for (let k = 0; k < h; k++) {
-    sphereObjs.push({
-        type: 1,
-        pos: { x: i*u+u/2, y: k*u+0.5, z: j*u+u/2},
-        radius: 1,
-        color: {
-            r: 155 + 100 * Math.random(),
-            g: 155 + 100 * Math.random(),
-            b: 155 + 100 * Math.random()
-        },
-        reflective: 0.4
-    });
-}}}
-
-let splitCount = 0;
-let row = m*2, col = n*2;
-while (row%2==0 && col%2==0 && row+col>4) {
-    row /= 2;
-    col /= 2;
-    splitCount++;
-}
-
-let sphereNode = new BVHnode([], false);
-
-function recursiveSphereSplit(spheres, parent, depth, cx, cy, row, col) {
-    if (depth == splitCount) {
-        parent.isLeaf = true;
-        parent.node = spheres;
-        return;
-    }
-
-    let newSpheres = [
-        [], [], [], []
-    ];
-    for (let i = 0; i < spheres.length; i++) {
-        let sphere = spheres[i];
-
-        if (sphere.pos.x < cx*u) {
-            if (sphere.pos.z < cy*u) newSpheres[0].push(sphere); // Top left
-            else newSpheres[1].push(sphere); // Bottom left
-        } else {
-            if (sphere.pos.z < cy*u) newSpheres[2].push(sphere); // Top right
-            else newSpheres[3].push(sphere); // Bottom right
-        }
-    };
-
-    let data = [
-        {cx: cx - row/4, cy: cy - col/4, row: row/2, col: col/2},
-        {cx: cx - row/4, cy: cy + col/4, row: row/2, col: col/2},
-        {cx: cx + row/4, cy: cy - col/4, row: row/2, col: col/2},
-        {cx: cx + row/4, cy: cy + col/4, row: row/2, col: col/2}
-    ];
-
-    for (let i = 0; i < 4; i++) {
-        parent.node.push(new BVHnode([]));
-        recursiveSphereSplit(
-            newSpheres[i], parent.node[i], depth + 1,
-            data[i].cx, data[i].cy, data[i].row, data[i].col
-        );
-    }
-}
-recursiveSphereSplit(sphereObjs, sphereNode, 0, 0, 0, 2*m, 2*n);
-
-// Other geometry
-let boxNode = new BVHnode(box, true);
-
 // Create a wall in the middle of the box to separate the box
 let wallN1 = { x: 0, y: 0, z: -1 };
 let wallN2 = { x: 0, y: 0, z: 1 };
@@ -1457,13 +1235,8 @@ let wall2b = {
     c1: wallC, c2: wallC, c3: wallC
 };
 
-let wallNode = new BVHnode([wall2a, wall2b], true);
-for (let wall of wallNode.node) {
-    wall.debug2 = 0.8;
-}
-
-box[4].reflective = 0;
-box[5].reflective = 0;
+box[4].debug1 = 1;
+box[5].debug1 = 1;
 box[4].texture = 1;
 box[5].texture = 1;
 box[4].t1 = { x: 0, y: 1 };
@@ -1474,45 +1247,12 @@ box[5].t2 = { x: 1, y: 0 };
 box[5].t3 = { x: 1, y: 1 };
 // Remove the ceiling
 box.splice(6, 2);
-let floorNode = new BVHnode([box[4], box[5]], true);
 
-let skyboxNode = new BVHnode([{
-    type: 1,
-    pos: { x: 0, y: 0, z: 0 },
-    radius: 2000,
-    // Blue-ish by default
-    color: { r: 70, g: 130, b: 180 },
-    texture: 0,
-    skybox: true
-}], true);
+// Initialize BVH
+const bvh = new BVH();
+bvh.geoms.push(...box, wall1a, wall1b, wall2a, wall2b);
+bvh.designBvh();
 
-let ballsNode = new BVHnode([
-{
-    type: 1,
-    pos: { x: -5, y: 0.5, z: boxWidth / 10 },
-    radius: 1,
-    color: { r: 255, g: 0, b: 0 }
-},
-{
-    type: 1,
-    pos: { x: 5, y: 0.5, z: -boxWidth / 10 },
-    radius: 1,
-    color: { r: 0, g: 0, b: 255 }
-}
-], true);
-
-const stackBVH = new BVHnode([
-    //sphereNode,
-    ballsNode,
-    wallNode,
-    // boxNode,
-    floorNode,
-    skyboxNode
-]);
-stackBVH.updateAABB();
-
-const glbStackless = new StacklessBVH(stackBVH);
-console.log(glbStackless);
 
 // Some settings
 let scale = 10;
@@ -1615,11 +1355,6 @@ function staticUpdateHud() {
         <h2>+1</h2>
     </button>
     `);
-
-    // Update the BVH structure
-    const hudBVHContainer = document.getElementById("hud-bvh-container");
-    hudBVHContainer.innerHTML = StacklessBVH.flatToHTML(glbStackless.flats).html;
-    reupdateAllBVHButtonStyle(glbStackless);
 };
 staticUpdateHud();
 
@@ -1648,13 +1383,12 @@ function renderFast() {
     ctx.fillStyle = 'black';
     ctx.fillRect(0, 0, width * scale, height * scale);
 
-    // Trying out the recursion
     for (let x = 0; x < width; x++) {
         for (let y = 0; y < height; y++) {
             let ray = camera.generateRay(x, y, width, height);
-            let result = Ray.recursiveRayTracing(ray, glbStackless, 4, false);
+            let result = Ray.trace(ray, bvh.nodes, bvh.geoms, bvh.gIdx, superQuality);
 
-            ctx.fillStyle = `rgb(${result.color.r}, ${result.color.g}, ${result.color.b})`;
+            ctx.fillStyle = `rgb(${result.x}, ${result.y}, ${result.z})`;
             ctx.fillRect(x * scale, y * scale, scale, scale);
         }
     }
@@ -1679,9 +1413,7 @@ function renderFast() {
     runtimeUpdateHud();
 }
 
-// A renderer that isn't time sensitive
-// (Basically you can take as much time as you want)
-// (Tho still try to make it fast using acceleration structures like BVH or something)
+// Super Quality render (high quality) (not clickbait) (cop's called) (gone wrong)
 function renderQuality() {
     // Paint everything black
     ctx.clearRect(0, 0, width * scale, height * scale);
@@ -1693,7 +1425,7 @@ function renderQuality() {
     for (let x = 0; x < width; x++) {
         for (let y = 0; y < height; y++) {
             let ray = camera.generateRay(x, y, width, height);
-            let result = Ray.recursiveRayTracing(ray, glbStackless, 10, true);
+            let result = Ray.trace(ray, glbStackless, 10, true);
 
             colorBuffer[x + y * width] = result.color;
             luminanceBuffer[x + y * width] = result.color.r * 0.299 + result.color.g * 0.587 + result.color.b * 0.114;
