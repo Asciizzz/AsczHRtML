@@ -1070,8 +1070,8 @@ class Geometry {
         if (geom.texture != null && textures[geom.texture]) {
             let tex = textures[geom.texture];
 
-            let phi = Math.acos(-normal.y);
-            let theta = Math.atan2(-normal.z, -normal.x) + Math.PI;
+            let phi = Math.acos(-nrml.y);
+            let theta = Math.atan2(-nrml.z, -nrml.x) + Math.PI;
             let u = theta / (2 * Math.PI);
             let v = phi / Math.PI;
 
@@ -1241,8 +1241,8 @@ let toggleLightFollow = (i) => {
 // Some Geometry
 
 let boxY = 0;
-let boxWidth = 16;
-let boxHeight = 5;
+let boxWidth = 82;
+let boxHeight = 10;
 
 let boxVertices = [
     { x: -boxWidth, y: boxY, z: -boxWidth },
@@ -1348,8 +1348,8 @@ box[5].refl = 0.5;
 box.splice(6, 2);
 
 // Create a bunch of spheres
-let sphX = 7;
-let sphZ = 7;
+let sphX = 40;
+let sphZ = 40;
 let sphR = 1;
 let sphU = 2;
 
@@ -1368,7 +1368,7 @@ for (let x = -sphX; x <= sphX; x += sphU) {
 
 // Initialize BVH
 const bvh = new BVH();
-bvh.geoms.push(...box, wall1a, wall1b, wall2a, wall2b, ...spheres);
+bvh.geoms.push(...box, ...spheres);
 bvh.designBvh();
 
 
