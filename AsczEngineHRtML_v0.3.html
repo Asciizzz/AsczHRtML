@@ -897,18 +897,13 @@ class Ray {
 
                 let NdotL = -Vec3f.dot(nrml, lDir);
 
-                let diff = {
-                    x: colr.x * NdotL,
-                    y: colr.y * NdotL,
-                    z: colr.z * NdotL
-                };
+                let diff = Vec3f.mult(colr, NdotL);
 
                 let refl = Ray.rayReflect(Vec3f.flip(lDir), nrml);
-                let spec = {
-                    x: 0.4 * Math.pow(Vec3f.dot(refl, Vec3f.flip(ray.direction)), 32),
-                    y: 0.4 * Math.pow(Vec3f.dot(refl, Vec3f.flip(ray.direction)), 32),
-                    z: 0.4 * Math.pow(Vec3f.dot(refl, Vec3f.flip(ray.direction)), 32)
-                }
+
+                let Ks = {x: 0.4, y: 0.4, z: 0.4};
+                let specComp = Math.pow(Vec3f.dot(refl, Vec3f.flip(ray.direction)), 32);
+                let spec = Vec3f.mult(Ks, specComp);
 
                 finalColr.x += (diff.x + spec.x) * passColr.x * lI;
                 finalColr.y += (diff.y + spec.y) * passColr.y * lI;
@@ -940,24 +935,14 @@ class Ray {
 
 
     static pathtrace(primray, nodes, geoms, gIdxs, lSrcs) {
-        let rstack = Array(128);
+        let rstack = Array(16);
         let rs_top = 0;
-
-        // Split primary ray into multiple rays that are offset slightly
-        let rnum = 2;
-        for (let i = 0; i < rnum; ++i) {
-            let r = new Ray(primray.origin, primray.direction, primray.Ni, primray.w);
-            r.origin = Vec3f.add(r.origin, Vec3f.mult(r.direction, 0.001 * i));
-            r.w = 1.0 / rnum;
-            rstack[rs_top++] = r;
-        }
+        rstack[rs_top++] = primray;
 
         let nstack = Array(32);
         let ns_top = 0;
 
         let resultColr = { x: 0, y: 0, z: 0 };
-
-        let pathtraced = false;
 
         while (rs_top > 0) {
             const ray = rstack[--rs_top];
@@ -965,6 +950,7 @@ class Ray {
             if (ray.w < 0.01) continue;
 
             let hit = BVH.closestHit(ray, nodes, geoms, gIdxs);
+
             if (hit.i == -1) continue;
 
             const gIdx = gIdxs[hit.i];
@@ -976,11 +962,7 @@ class Ray {
             let NdotR = Vec3f.dot(nrml, ray.direction);
             NdotR = NdotR < 0 ? -NdotR : NdotR;
 
-            let finalColr = {
-                r: colr.r * NdotR * 0.2,
-                g: colr.g * NdotR * 0.2,
-                b: colr.b * NdotR * 0.2
-            };
+            let finalColr = Vec3f.mult(colr, NdotR * 0.2);
 
             for (let l = 0; l < lSrcs.length; ++l) {
                 const lSrc = lSrcs[l];
@@ -996,66 +978,35 @@ class Ray {
                 let passColr = lSrc.color;
 
                 let shadow = BVH.anyHit(lRay, nodes, geoms, gIdxs, lDist, gIdx);
-                
-                // Shoot multiple rays from the vertex
-                let drnum = 16;
-                if (!pathtraced) {
-                    pathtraced = true;
-
-                    let totalWeight = 0;
-                    let startRs = rs_top;
-                    for (let i = 0; i < drnum; ++i) {
-                        let r = new Ray(vrtx, Vec3f.norm(Vec3f.add(lDir, { x: Math.random() - 0.5, y: Math.random() - 0.5, z: Math.random() - 0.5 })));
-                        // Modify the weight of the rays based on the dot product of the normal and the direction
-                        r.w = ray.w * Math.max(0, Vec3f.dot(nrml, r.direction));
-                        if (r.w < 0.01) {
-                            i -= 1;
-                            continue;
-                        }
-                        totalWeight += r.w;
-
-                        rstack[rs_top++] = r;
-                    }
-
-                    for (let i = startRs; i < rs_top; ++i) {
-                        rstack[i].w /= totalWeight;
-                    }
-                }
-                
                 if (shadow) continue;
 
                 let NdotL = -Vec3f.dot(nrml, lDir);
 
-                let diff = {
-                    r: colr.r * NdotL,
-                    g: colr.g * NdotL,
-                    b: colr.b * NdotL
-                };
+                let diff = Vec3f.mult(colr, NdotL);
 
                 let refl = Ray.rayReflect(Vec3f.flip(lDir), nrml);
-                let spec = {
-                    r: 0.4 * Math.pow(Vec3f.dot(refl, Vec3f.flip(ray.direction)), 32),
-                    g: 0.4 * Math.pow(Vec3f.dot(refl, Vec3f.flip(ray.direction)), 32),
-                    b: 0.4 * Math.pow(Vec3f.dot(refl, Vec3f.flip(ray.direction)), 32)
-                }
 
-                finalColr.r += (diff.r + spec.r) * passColr.r * lI;
-                finalColr.g += (diff.g + spec.g) * passColr.g * lI;
-                finalColr.b += (diff.b + spec.b) * passColr.b * lI;
+                let Ks = {x: 0.4, y: 0.4, z: 0.4};
+                let specComp = Math.pow(Vec3f.dot(refl, Vec3f.flip(ray.direction)), 32);
+                let spec = Vec3f.mult(Ks, specComp);
+
+                finalColr.x += (diff.x + spec.x) * passColr.x * lI;
+                finalColr.y += (diff.y + spec.y) * passColr.y * lI;
+                finalColr.z += (diff.z + spec.z) * passColr.z * lI;
             }
 
-            if (gHit.refl > 0.0) {
+            if (gHit.refl > 0.0 && rs_top < 8) {
                 let reflD = Ray.rayReflect(ray.direction, nrml);
                 let reflO = Vec3f.add(vrtx, Vec3f.mult(reflD, 0.0001)); // Slight offset
                 let reflRay = new Ray(reflO, reflD, ray.Ni, ray.w * gHit.refl);
 
                 rstack[rs_top++] = reflRay;
             }
-            
+
             // Add result color
-            resultColr.x += finalColr.r * ray.w;
-            resultColr.y += finalColr.g * ray.w;
-            resultColr.z += finalColr.b * ray.w;
+            resultColr.x += finalColr.x * ray.w;
+            resultColr.y += finalColr.y * ray.w;
+            resultColr.z += finalColr.z * ray.w;
         }
 
 
@@ -1316,9 +1267,9 @@ function extractTexture(src) {
 
         for (let i = 0; i < imgData.length; i += 4) {
             colors[i / 4] = {
-                x: imgData[i],
-                y: imgData[i + 1],
-                z: imgData[i + 2]
+                x: imgData[i] / 255,
+                y: imgData[i + 1] / 255,
+                z: imgData[i + 2] / 255
             };
         }
 
@@ -1484,7 +1435,8 @@ for (let x = -sphX; x <= sphX; x += sphU) {
             pos: { x: x * sphU, y: sphR, z: z * sphU },
             r: sphR,
             c: { x: Math.random(), y: Math.random(), z: Math.random() },
-            // refl: 0.5
+            // refl: 0.5,
+            texture: 0
         });
     }
 }
