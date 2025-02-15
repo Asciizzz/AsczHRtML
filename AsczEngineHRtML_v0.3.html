@@ -1287,19 +1287,19 @@ function extractTexture(src) {
 // Multiple lightSrcs
 let lightSrcs = [
 {
-    pos: { x:0, y:4, z:-10 },
+    pos: { x:0, y:10, z:0 },
     color: { x: 0.6, y: 0.6, z: 1},
     intensity: 1,
 
     follow: false, disabled: false
-},
+}/*,
 {
     pos: { x:0, y:4, z:10 },
     color: { x: 1, y: 0.6, z: 0.6},
     intensity: 1,
 
     follow: false, disabled: false
-}
+}*/
 ];
 let removeLightSrc = (i) => {
     lightSrcs.splice(i, 1);
@@ -1315,7 +1315,7 @@ let toggleLightFollow = (i) => {
 // Some Geometry
 
 let boxY = 0;
-let boxWidth = 82;
+let boxWidth = 10;
 let boxHeight = 10;
 
 let boxVertices = [
@@ -1422,8 +1422,8 @@ box[5].t3 = { x: 1, y: 1 };
 box.splice(6, 2);
 
 // Create a bunch of spheres
-let sphX = 40;
-let sphZ = 40;
+let sphX = 4;
+let sphZ = 4;
 let sphR = 1;
 let sphU = 2;
 
@@ -1435,8 +1435,8 @@ for (let x = -sphX; x <= sphX; x += sphU) {
             pos: { x: x * sphU, y: sphR, z: z * sphU },
             r: sphR,
             c: { x: Math.random(), y: Math.random(), z: Math.random() },
-            // refl: 0.5,
-            texture: 0
+            refl: 0.5
+            // texture: 0
         });
     }
 }
