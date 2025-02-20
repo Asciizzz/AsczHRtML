@@ -87,7 +87,7 @@ class BVH {
         this.root.lr = this.geoms.length;
     }
 
-    buildBvh(node, depth=0) {
+    buildBVH(node, depth=0) {
         this.nodes.push(node);
 
         let idx = 0;
@@ -190,18 +190,18 @@ class BVH {
         let curIdx = this.nodes.length - 1;
 
         this.nodes[curIdx].cl = this.nodes.length;
-        idx += this.buildBvh(l, depth + 1);
+        idx += this.buildBVH(l, depth + 1);
 
         this.nodes[curIdx].cr = this.nodes.length;
-        idx += this.buildBvh(r, depth + 1);
+        idx += this.buildBVH(r, depth + 1);
 
         return idx + 1;
     }
 
-    designBvh() {
+    designBVH() {
         this.calcAABB();
 
-        this.buildBvh(this.root);
+        this.buildBVH(this.root);
 
         console.log(this.nodes);
     }

@@ -28,7 +28,7 @@ class Ray {
         ));
     }
 
-    static raytrace(primray, nodes, geoms, gIdxs, lSrcs) {
+    static raytrace(primray, nodes, geoms, gIdxs, mtls, lSrcs) {
         let rstack = Array(8);
         let rs_top = 0;
         rstack[rs_top++] = primray;
@@ -48,12 +48,14 @@ class Ray {
             const gHit = geoms[gIdx];
 
             let interp = Geometry.interpolate(ray, gHit, hit.t, hit.u, hit.v);
-            let vrtx = interp.v, nrml = interp.n, colr = interp.c;
+            let vrtx = interp.v, nrml = interp.n;
+
+            let mtl = mtls[gHit.mtl || 0];
 
             let NdotR = Flt3.dot(nrml, ray.direction);
             NdotR = NdotR < 0 ? -NdotR : NdotR;
 
-            let finalColr = Flt3.mult(colr, NdotR * 0.2);
+            let finalColr = Flt3.mult(mtl.Kd, NdotR * 0.2);
 
             for (let l = 0; l < lSrcs.length; ++l) {
                 const lSrc = lSrcs[l];
@@ -73,13 +75,12 @@ class Ray {
 
                 let NdotL = -Flt3.dot(nrml, lDir);
 
-                let diff = Flt3.mult(colr, NdotL);
+                let diff = Flt3.mult(mtl.Kd, NdotL);
 
                 let refl = Ray.rayReflect(Flt3.flip(lDir), nrml);
 
-                let Ks = {x: 0.4, y: 0.4, z: 0.4};
                 let specComp = Math.pow(Flt3.dot(refl, Flt3.flip(ray.direction)), 32);
-                let spec = Flt3.mult(Ks, specComp);
+                let spec = Flt3.mult(mtl.Ks, specComp);
 
                 finalColr.x += (diff.x + spec.x) * passColr.x * lI;
                 finalColr.y += (diff.y + spec.y) * passColr.y * lI;
@@ -110,13 +111,10 @@ class Ray {
     }
 
 
-    static pathtrace(primray, nodes, geoms, gIdxs, lSrcs) {
-        let rstack = Array(16);
+    static pathtrace(primray, nodes, geoms, gIdxs, mtls, lSrcs) {
+        let rstack = Array(8);
         let rs_top = 0;
         rstack[rs_top++] = primray;
-
-        let nstack = Array(32);
-        let ns_top = 0;
 
         let resultColr = { x: 0, y: 0, z: 0 };
 
@@ -133,12 +131,14 @@ class Ray {
             const gHit = geoms[gIdx];
 
             let interp = Geometry.interpolate(ray, gHit, hit.t, hit.u, hit.v);
-            let vrtx = interp.v, nrml = interp.n, colr = interp.c;
+            let vrtx = interp.v, nrml = interp.n;
+
+            let mtl = mtls[gHit.mtl || 0];
 
             let NdotR = Flt3.dot(nrml, ray.direction);
             NdotR = NdotR < 0 ? -NdotR : NdotR;
 
-            let finalColr = Flt3.mult(colr, NdotR * 0.2);
+            let finalColr = Flt3.mult(mtl.Kd, NdotR * 0.2);
 
             for (let l = 0; l < lSrcs.length; ++l) {
                 const lSrc = lSrcs[l];
@@ -158,13 +158,12 @@ class Ray {
 
                 let NdotL = -Flt3.dot(nrml, lDir);
 
-                let diff = Flt3.mult(colr, NdotL);
+                let diff = Flt3.mult(mtl.Kd, NdotL);
 
                 let refl = Ray.rayReflect(Flt3.flip(lDir), nrml);
 
-                let Ks = {x: 0.4, y: 0.4, z: 0.4};
                 let specComp = Math.pow(Flt3.dot(refl, Flt3.flip(ray.direction)), 32);
-                let spec = Flt3.mult(Ks, specComp);
+                let spec = Flt3.mult(mtl.Ks, specComp);
 
                 finalColr.x += (diff.x + spec.x) * passColr.x * lI;
                 finalColr.y += (diff.y + spec.y) * passColr.y * lI;

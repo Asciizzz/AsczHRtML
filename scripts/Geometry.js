@@ -77,37 +77,8 @@ class Geometry {
     static interpTriangle(ray, geom, t, u, v) {
         let vrtx = Flt3.add(ray.origin, Flt3.mult(ray.direction, t));
         let nrml = Flt3.interpolate3fx3(geom.n1, geom.n2, geom.n3, u, v);
-        nrml = Flt3.norm(nrml);
-        let colr = { x: 0, y: 0, z: 0 };
 
-        if (geom.texture != null && textures[geom.texture]) {
-            let tex = textures[geom.texture];
-
-            let txCoord = Flt3.interpolate2fx3(geom.t1, geom.t2, geom.t3, u, v);
-
-            // Wrap around if texture is repeated
-            if (txCoord.x < 0) txCoord.x = 1 - txCoord.x;
-            if (txCoord.y < 0) txCoord.y = 1 - txCoord.y;
-
-            txCoord.x = txCoord.x - Math.floor(txCoord.x);
-            txCoord.y = txCoord.y - Math.floor(txCoord.y);
-
-            let tx = Math.floor(txCoord.x * tex.width);
-            let ty = Math.floor(txCoord.y * tex.height);
-            let txColor = tex.data[tx + ty * tex.width];
-
-            colr = txColor;
-        } else {
-            // Interpolate color
-            let w = 1 - u - v;
-            let c1 = Flt3.mult(geom.c1, w);
-            let c2 = Flt3.mult(geom.c2, u);
-            let c3 = Flt3.mult(geom.c3, v);
-
-            colr = Flt3.add(Flt3.add(c1, c2), c3);
-        }
-
-        return { v: vrtx, n: nrml, c: colr };
+        return { v: vrtx, n: nrml };
     }
 
     static interpSphere(ray, geom, t) {
@@ -116,22 +87,6 @@ class Geometry {
             Flt3.norm(Flt3.sub(geom.pos, vrtx)) :
             Flt3.norm(Flt3.sub(vrtx, geom.pos));
 
-        let colr = geom.c;
-        if (geom.texture != null && textures[geom.texture]) {
-            let tex = textures[geom.texture];
-
-            let phi = Math.acos(-nrml.y);
-            let theta = Math.atan2(-nrml.z, -nrml.x) + Math.PI;
-            let u = theta / (2 * Math.PI);
-            let v = phi / Math.PI;
-
-            let tx = Math.floor(u * tex.width);
-            let ty = Math.floor(v * tex.height);
-            let txColor = tex.data[tx + ty * tex.width];
-
-            colr = txColor;
-        }
-
-        return { v: vrtx, n: nrml, c: colr };
+        return { v: vrtx, n: nrml };
     }
 }

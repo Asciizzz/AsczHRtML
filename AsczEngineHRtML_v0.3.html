@@ -101,7 +101,7 @@ Contributions are welcome, peace!
     </div>
 </body>
 
-<script src="scripts/Slop.js"></script>
+<script src="scripts/Slop1.js"></script>
 <script src="scripts/Flt3.js"></script>
 <script src="scripts/AABB.js"></script>
 <script src="scripts/BVH.js"></script>
@@ -114,6 +114,10 @@ Contributions are welcome, peace!
 
 const camera = new Camera();
 camera.pos = { x: 0, y: 5, z: 0 };
+
+// Initialize Global Data
+const glbBVH = new BVH();
+const glbMTL = new MTL();
 
 // Flattened array of texture image data
 let textures = [];
@@ -161,7 +165,7 @@ function extractTexture(src) {
 // Multiple lightSrcs
 let lightSrcs = [
 {
-    pos: { x:0, y:10, z:0 },
+    pos: { x:0, y:5, z:0 },
     color: { x: 0.6, y: 0.6, z: 1},
     intensity: 1,
 
@@ -230,14 +234,35 @@ let box = [
     { v1: boxVertices[1], v2: boxVertices[3], v3: boxVertices[7], n1: boxNormals[5], n2: boxNormals[5], n3: boxNormals[5] },
     { v1: boxVertices[1], v2: boxVertices[7], v3: boxVertices[5], n1: boxNormals[5], n2: boxNormals[5], n3: boxNormals[5] }
 ];
-let boxColor = { x: 0.5, y: 0.5, z: 1 };
-boxColor = { x: 1, y: 1, z: 1 };
+let boxMtls = [
+    glbMTL.appendMTL({
+        Kd: { x: 0.2, y: 0.8, z: 0.8 },
+        Ks: { x: 0.0, y: 0.0, z: 0.0 },
+    }),
+    glbMTL.appendMTL({
+        Kd: { x: 0.8, y: 0.2, z: 0.8 },
+        Ks: { x: 0.0, y: 0.0, z: 0.0 },
+    }),
+    glbMTL.appendMTL({
+        Kd: { x: 0.8, y: 0.8, z: 0.2 },
+        Ks: { x: 0.0, y: 0.0, z: 0.0 },
+    }),
+    glbMTL.appendMTL({
+        Kd: { x: 0.8, y: 0.8, z: 0.8 },
+        Ks: { x: 0.0, y: 0.0, z: 0.0 },
+    }),
+    glbMTL.appendMTL({
+        Kd: { x: 0.8, y: 0.8, z: 0.8 },
+        Ks: { x: 0.0, y: 0.0, z: 0.0 },
+    }),
+    glbMTL.appendMTL({
+        Kd: { x: 0.8, y: 0.8, z: 0.8 },
+        Ks: { x: 0.0, y: 0.0, z: 0.0 },
+    })
+]
 for (let i = 0; i < box.length; i++) {
     box[i].type = 0;
-    box[i].c1 = boxColor;
-    box[i].c2 = boxColor;
-    box[i].c3 = boxColor;
-    // Additional attributes if needed
+    box[i].mtl = boxMtls[Math.floor(i/2) % 6];
 }
 
 // Remove positive z wall
@@ -268,22 +293,17 @@ let sph1 = {
     type: 1,
     pos: { x: 0, y: 1, z: 0 },
     r: 1,
-    c: { x: 1, y: 1, z: 1 },
-    refl: 0.5
+    mtl: 0
 }
 let sph2 = {
     type: 1,
     pos: { x: 2, y: 1, z: 0 },
     r: 1,
-    c: { x: 1, y: 1, z: 1 },
-    refl: 0.5
+    mtl: 0
 }
 
-// Initialize BVH
-const bvh = new BVH();
-bvh.geoms.push(...box, sph1, sph2);
-bvh.designBvh();
-
+glbBVH.geoms.push(...box, sph1, sph2);
+glbBVH.designBVH();
 
 // Some settings
 let scale = 11;
@@ -418,7 +438,7 @@ function renderFast() {
         for (let y = 0; y < height; y++) {
             let ray = camera.generateRay(x, y, width, height);
             let result = Ray.raytrace(
-                ray, bvh.nodes, bvh.geoms, bvh.gIdxs, lightSrcs
+                ray, glbBVH.nodes, glbBVH.geoms, glbBVH.gIdxs, glbMTL.mtls, lightSrcs
             );
             result.x *= 255; result.y *= 255; result.z *= 255;
 
@@ -457,7 +477,7 @@ function renderQuality() {
         for (let y = 0; y < height; y++) {
             let ray = camera.generateRay(x, y, width, height);
             let result = Ray.pathtrace(
-                ray, bvh.nodes, bvh.geoms, bvh.gIdxs, lightSrcs
+                ray, glbBVH.nodes, glbBVH.geoms, glbBVH.gIdxs, glbMTL.mtls, lightSrcs, textures
             );
             result.x *= 255; result.y *= 255; result.z *= 255;
 
