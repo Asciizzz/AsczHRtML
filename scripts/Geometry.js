@@ -44,7 +44,7 @@ class Geometry {
     static intersectSphere(ray, geom) {
         let result = { i: false, z: 0, uv: { u: 0, v: 0 } };
 
-        let l = Flt3.sub(geom.pos, ray.origin);
+        let l = Flt3.sub(geom.o, ray.origin);
         let tca = Flt3.dot(l, ray.direction);
         let d2 = Flt3.dot(l, l) - tca * tca;
 
@@ -84,8 +84,8 @@ class Geometry {
     static interpSphere(ray, geom, t) {
         let vrtx = Flt3.add(ray.origin, Flt3.mult(ray.direction, t));
         let nrml = (geom.skybox || geom.inverse) ?
-            Flt3.norm(Flt3.sub(geom.pos, vrtx)) :
-            Flt3.norm(Flt3.sub(vrtx, geom.pos));
+            Flt3.norm(Flt3.sub(geom.o, vrtx)) :
+            Flt3.norm(Flt3.sub(vrtx, geom.o));
 
         return { v: vrtx, n: nrml };
     }

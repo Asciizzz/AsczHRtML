@@ -1,3 +1,21 @@
+// Some helper functions for ray tracing
+function sampleHemisphere(normal) {
+    let z = Math.random();
+    let r = Math.sqrt(1 - z * z);
+    let phi = Math.random() * 2 * Math.PI;
+
+    let x = r * Math.cos(phi);
+    let y = r * Math.sin(phi);
+
+    let t = Flt3.norm(normal);
+    let u = Math.abs(t.x) > 0.1 ? { x: 0, y: 1, z: 0 } : { x: 1, y: 0, z: 0 };
+    let v = Flt3.cross(t, u);
+
+    return Flt3.norm(Flt3.add(
+        Flt3.add(Flt3.mult(u, x), Flt3.mult(v, y)),
+        Flt3.mult(t, z)
+    ));
+}
 
 class Ray {
     constructor(origin={x:0,y:0,z:0}, direction={x:0,y:0,z:1}, Ni=1.0, w=1.0) {
@@ -38,10 +56,7 @@ class Ray {
         while (rs_top > 0) {
             const ray = rstack[--rs_top];
 
-            if (ray.w < 0.01) continue;
-
             let hit = BVH.closestHit(ray, nodes, geoms, gIdxs);
-
             if (hit.i == -1) continue;
 
             const gIdx = gIdxs[hit.i];
@@ -50,49 +65,41 @@ class Ray {
             let interp = Geometry.interpolate(ray, gHit, hit.t, hit.u, hit.v);
             let vrtx = interp.v, nrml = interp.n;
 
-            let mtl = mtls[gHit.mtl || 0];
+            let mtl = mtls[gHit.mtl];
 
             let NdotR = Flt3.dot(nrml, ray.direction);
             NdotR = NdotR < 0 ? -NdotR : NdotR;
-
-            let finalColr = Flt3.mult(mtl.Kd, NdotR * 0.2);
+            let finalColr = Flt3.mult(mtl.Ka, NdotR * 0.2);
 
             for (let l = 0; l < lSrcs.length; ++l) {
                 const lSrc = lSrcs[l];
 
-                let lPos = lSrc.pos;
+                const lPos = lSrc.pos;
                 let lDir = Flt3.sub(vrtx, lPos);
                 let lDist = Flt3.mag(lDir);
                 lDir = Flt3.norm(lDir);
 
                 let lRay = new Ray(lPos, lDir);
 
-                let lI = lSrc.intensity;
-                let passColr = lSrc.color;
-
                 let shadow = BVH.anyHit(lRay, nodes, geoms, gIdxs, lDist, gIdx);
                 if (shadow) continue;
 
-                let NdotL = -Flt3.dot(nrml, lDir);
+                const lIntense = lSrc.intensity;
+                const lColor = lSrc.color;
 
+                let NdotL = -Flt3.dot(nrml, lDir);
                 let diff = Flt3.mult(mtl.Kd, NdotL);
 
-                let refl = Ray.rayReflect(Flt3.flip(lDir), nrml);
+                let refl = Ray.rayReflect(lDir, nrml);
+                let RdotV = Flt3.dot(refl, Flt3.flip(ray.direction));
+                RdotV = RdotV < 0 ? 0 : RdotV;
 
-                let specComp = Math.pow(Flt3.dot(refl, Flt3.flip(ray.direction)), 32);
+                let specComp = Math.pow(RdotV, mtl.Ns);
                 let spec = Flt3.mult(mtl.Ks, specComp);
 
-                finalColr.x += (diff.x + spec.x) * passColr.x * lI;
-                finalColr.y += (diff.y + spec.y) * passColr.y * lI;
-                finalColr.z += (diff.z + spec.z) * passColr.z * lI;
-            }
-
-            if (gHit.refl > 0.0 && rs_top < 8) {
-                let reflD = Ray.rayReflect(ray.direction, nrml);
-                let reflO = Flt3.add(vrtx, Flt3.mult(reflD, 0.0001)); // Slight offset
-                let reflRay = new Ray(reflO, reflD, ray.Ni, ray.w * gHit.refl);
-
-                rstack[rs_top++] = reflRay;
+                finalColr.x += (diff.x + spec.x) * lColor.x * lIntense;
+                finalColr.y += (diff.y + spec.y) * lColor.y * lIntense;
+                finalColr.z += (diff.z + spec.z) * lColor.z * lIntense;
             }
 
             // Add result color
@@ -112,16 +119,16 @@ class Ray {
 
 
     static pathtrace(primray, nodes, geoms, gIdxs, mtls, lSrcs) {
-        let rstack = Array(8);
+        let rstack = Array(128);
         let rs_top = 0;
         rstack[rs_top++] = primray;
 
         let resultColr = { x: 0, y: 0, z: 0 };
 
+        let bounceLeft = 4;
+
         while (rs_top > 0) {
             const ray = rstack[--rs_top];
-
-            if (ray.w < 0.01) continue;
 
             let hit = BVH.closestHit(ray, nodes, geoms, gIdxs);
 
@@ -133,13 +140,9 @@ class Ray {
             let interp = Geometry.interpolate(ray, gHit, hit.t, hit.u, hit.v);
             let vrtx = interp.v, nrml = interp.n;
 
-            let mtl = mtls[gHit.mtl || 0];
+            let mtl = mtls[gHit.mtl];
 
-            let NdotR = Flt3.dot(nrml, ray.direction);
-            NdotR = NdotR < 0 ? -NdotR : NdotR;
-
-            let finalColr = Flt3.mult(mtl.Kd, NdotR * 0.2);
-
+            let finalColr = { x: 0, y: 0, z: 0 };
             for (let l = 0; l < lSrcs.length; ++l) {
                 const lSrc = lSrcs[l];
 
@@ -150,32 +153,36 @@ class Ray {
 
                 let lRay = new Ray(lPos, lDir);
 
-                let lI = lSrc.intensity;
-                let passColr = lSrc.color;
-
                 let shadow = BVH.anyHit(lRay, nodes, geoms, gIdxs, lDist, gIdx);
                 if (shadow) continue;
 
-                let NdotL = -Flt3.dot(nrml, lDir);
+                let lIntense = lSrc.intensity;
+                let lColor = lSrc.color;
 
+                let NdotL = -Flt3.dot(nrml, lDir);
                 let diff = Flt3.mult(mtl.Kd, NdotL);
 
-                let refl = Ray.rayReflect(Flt3.flip(lDir), nrml);
+                let refl = Ray.rayReflect(lDir, nrml);
+                let RdotV = Flt3.dot(refl, Flt3.flip(ray.direction));
+                RdotV = RdotV < 0 ? 0 : RdotV;
 
-                let specComp = Math.pow(Flt3.dot(refl, Flt3.flip(ray.direction)), 32);
+                let specComp = Math.pow(RdotV, mtl.Ns);
                 let spec = Flt3.mult(mtl.Ks, specComp);
 
-                finalColr.x += (diff.x + spec.x) * passColr.x * lI;
-                finalColr.y += (diff.y + spec.y) * passColr.y * lI;
-                finalColr.z += (diff.z + spec.z) * passColr.z * lI;
+                finalColr.x += (diff.x + spec.x) * lColor.x * lIntense;
+                finalColr.y += (diff.y + spec.y) * lColor.y * lIntense;
+                finalColr.z += (diff.z + spec.z) * lColor.z * lIntense;
             }
 
-            if (gHit.refl > 0.0 && rs_top < 8) {
-                let reflD = Ray.rayReflect(ray.direction, nrml);
-                let reflO = Flt3.add(vrtx, Flt3.mult(reflD, 0.0001)); // Slight offset
-                let reflRay = new Ray(reflO, reflD, ray.Ni, ray.w * gHit.refl);
+            if (bounceLeft > 0) {
+                bounceLeft--;
+                for (let i = 0; i < 32; i++) {
+                    let sampO = Flt3.add(vrtx, Flt3.mult(nrml, 0.0001));
+                    let sampD = sampleHemisphere(nrml);
+                    let sampRay = new Ray(sampO, sampD, ray.Ni, 0.005);
 
-                rstack[rs_top++] = reflRay;
+                    rstack[rs_top++] = sampRay;
+                }
             }
 
             // Add result color
@@ -183,7 +190,6 @@ class Ray {
             resultColr.y += finalColr.y * ray.w;
             resultColr.z += finalColr.z * ray.w;
         }
-
 
         // Clamp color
         resultColr.x = resultColr.x > 1 ? 1 : resultColr.x;

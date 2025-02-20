@@ -54,7 +54,7 @@ class BVH {
 
         this.root = new Node();
 
-        this.MAX_DEPTH = 10;
+        this.MAX_DEPTH = 32;
         this.BIN_COUNT = 11;
         this.NODE_FACE = 2;
     }
@@ -62,8 +62,10 @@ class BVH {
     calcAABB() {
         for (let i = 0; i < this.geoms.length; i++) {
             let geom = this.geoms[i];
-            let ab = new AABB();
+            // If geom doesn't have a material, assign a default material
+            if (geom.mtl == undefined) geom.mtl = 0;
 
+            let ab = new AABB();
             switch (geom.type) {
                 case 0:
                     ab.expand(geom.v1);
@@ -71,8 +73,8 @@ class BVH {
                     ab.expand(geom.v3);
                     break;
                 case 1:
-                    ab.min = Flt3.sub(geom.pos, { x: geom.r, y: geom.r, z: geom.r });
-                    ab.max = Flt3.add(geom.pos, { x: geom.r, y: geom.r, z: geom.r });   
+                    ab.min = Flt3.sub(geom.o, { x: geom.r, y: geom.r, z: geom.r });
+                    ab.max = Flt3.add(geom.o, { x: geom.r, y: geom.r, z: geom.r });   
                     break;
             }
 
